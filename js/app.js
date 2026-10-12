@@ -588,9 +588,10 @@
 
   // ---------- Résultats ----------
   function updateResults() {
-    const statsBody = $('statsBody'), cutBody = $('cutBody'), err = $('resultError');
+    const statsBody = $('statsBody'), cutBody = $('cutBody'), planBody = $('planBody'), err = $('resultError');
     statsBody.replaceChildren();
     cutBody.replaceChildren();
+    planBody.replaceChildren();
     err.hidden = !result.error;
     err.textContent = result.error || '';
     if (result.error) return;
@@ -636,18 +637,58 @@
       const tr = document.createElement('tr');
       tr.dataset.id = String(t.id);
       if (t.id === ui.highlightId) tr.className = 'active';
-      const src = t.source === 'offcut' ? `Chute du T${t.stock}${t.rotated ? ' (pivotée)' : ''}` : `Neuf T${t.stock}`;
-      tr.append(cell(`C${t.id}`), cell(`${fmtMm(t.w)} × ${fmtMm(t.h)}`), cell(src, t.source === 'offcut' ? 'src-offcut' : 'src-new'));
+      tr.append(cell(`C${t.id}`), cell(`${fmtMm(t.w)} × ${fmtMm(t.h)}`), cell(sourceLabel(t), t.source === 'offcut' ? 'src-offcut' : 'src-new'));
       cutBody.appendChild(tr);
     }
+
+    for (const s of result.plan) {
+      const tr = document.createElement('tr');
+      const td = cell();
+      s.pieces.forEach((p, i) => {
+        if (i) td.append(' → ');
+        const span = document.createElement('span');
+        span.className = 'piece' + (p.id === ui.highlightId ? ' active' : '');
+        span.dataset.id = String(p.id);
+        span.textContent = `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)})`;
+        td.appendChild(span);
+      });
+      tr.append(cell(`n°${s.stock}`), td);
+      planBody.appendChild(tr);
+    }
+  }
+
+  function sourceLabel(t) {
+    if (t.source !== 'offcut') return `Carreau neuf n°${t.stock}`;
+    return `Chute de C${t.fromPiece} (n°${t.stock})${t.rotated ? ' ↻' : ''}`;
   }
 
   function tileInfo(t) {
     if (t.full) return 'Carreau entier';
     const src = t.source === 'offcut'
-      ? `Taillée dans une chute du carreau T${t.stock}${t.rotated ? ' (pivotée 90°)' : ''}`
-      : `Taillée dans le carreau neuf T${t.stock}`;
+      ? `Taillée dans la chute de C${t.fromPiece} (carreau n°${t.stock})${t.rotated ? ', pivotée de 90°' : ''}`
+      : `Taillée dans le carreau neuf n°${t.stock}`;
     return `Coupe C${t.id} : ${fmtMm(t.w)} × ${fmtMm(t.h)} mm\nSurface posée : ${fmt(t.area / 1e6, 3)} m²\n${src}`;
+  }
+
+  function setHighlight(id, scroll) {
+    ui.highlightId = id;
+    let row = null;
+    document.querySelectorAll('#cutBody tr[data-id], #planBody [data-id]').forEach(el => {
+      const on = +el.dataset.id === id;
+      el.classList.toggle('active', on);
+      if (on && el.tagName === 'TR') row = el;
+    });
+    if (scroll && row) row.scrollIntoView({ block: 'nearest' });
+    render();
+  }
+
+  function selectTileAt(sx, sy) {
+    if (!result || result.error) return;
+    const w = toWorld(sx, sy);
+    const onObstacle = project.obstacles.some(o => Geo.pointInPolygon(w, o.points));
+    const tile = onObstacle ? null : result.tiles.find(t => Geo.pointInPolygon(w, t.piece));
+    const id = tile && !tile.full && tile.id !== ui.highlightId ? tile.id : null;
+    setHighlight(id, true);
   }
 
   // ---------- Souris ----------
@@ -716,7 +757,7 @@
         }
       }
       if (vi >= 0) { ui.drag = { type: 'vertex', i: vi }; return; }
-      ui.drag = { type: 'pan', sx, sy, ox: view.ox, oy: view.oy };
+      ui.drag = { type: 'pan', sx, sy, ox: view.ox, oy: view.oy, click: true };
       canvas.style.cursor = 'grabbing';
     });
 
@@ -742,9 +783,14 @@
       else if (!tooltip.hidden) tooltip.hidden = true;
     });
 
-    window.addEventListener('mouseup', () => {
-      if (ui.drag && ui.drag.type === 'pan') canvas.style.cursor = 'default';
+    window.addEventListener('mouseup', e => {
+      const d = ui.drag;
+      if (d && d.type === 'pan') canvas.style.cursor = 'default';
       ui.drag = null;
+      if (d && d.click) {
+        const { sx, sy } = mousePos(e);
+        if (Math.hypot(sx - d.sx, sy - d.sy) < 4) selectTileAt(sx, sy);
+      }
     });
 
     canvas.addEventListener('mouseleave', () => {
@@ -907,9 +953,14 @@
       const tr = e.target.closest('tr[data-id]');
       if (!tr) return;
       const id = +tr.dataset.id;
-      ui.highlightId = ui.highlightId === id ? null : id;
-      $('cutBody').querySelectorAll('tr').forEach(r => r.classList.toggle('active', +r.dataset.id === ui.highlightId));
-      render();
+      setHighlight(ui.highlightId === id ? null : id, false);
+    });
+
+    $('planBody').addEventListener('click', e => {
+      const el = e.target.closest('[data-id]');
+      if (!el) return;
+      const id = +el.dataset.id;
+      setHighlight(ui.highlightId === id ? null : id, true);
     });
 
     window.addEventListener('keydown', e => {

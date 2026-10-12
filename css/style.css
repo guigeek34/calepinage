@@ -78,6 +78,10 @@ table.grid td.del button { padding: 1px 7px; }
 table.cuts tbody tr { cursor: pointer; }
 table.cuts tbody tr:hover { background: #f1f5ff; }
 table.cuts tbody tr.active { background: #dbeafe; }
+table.plan td:first-child { white-space: nowrap; font-weight: 600; vertical-align: top; }
+table.plan .piece { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+table.plan .piece:hover { background: #f1f5ff; }
+table.plan .piece.active { background: #dbeafe; color: #1e40af; }
 .src-new { color: #b45309; }
 .src-offcut { color: #047857; }
 

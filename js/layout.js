@@ -110,6 +110,7 @@ const Layout = (() => {
       tiles, cuts, zone, frame: f, error,
       obstacles: obstacles.map(o => o.poly),
       offcuts: opt.offcuts,
+      plan: opt.plan,
       stats: {
         roomArea,
         obstacleArea,

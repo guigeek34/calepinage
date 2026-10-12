@@ -5,7 +5,7 @@ const Optimizer = (() => {
 
   function run(pieces, L, W, opt) {
     const pool = [];
-    let stockCount = 0;
+    const plan = [];
     let reused = 0;
     const order = pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h || b.w - a.w);
 
@@ -26,16 +26,19 @@ const Optimizer = (() => {
         p.rotated = best.rot;
         reused++;
       } else {
-        src = { w: L, h: W, stock: ++stockCount };
+        src = { w: L, h: W, stock: plan.length + 1, from: null };
+        plan.push({ stock: src.stock, pieces: [] });
         p.source = 'new';
         p.rotated = false;
       }
       p.stock = src.stock;
+      p.fromPiece = src.from;
+      plan[src.stock - 1].pieces.push(p);
       const pw = p.rotated ? p.h : p.w;
       const ph = p.rotated ? p.w : p.h;
-      for (const r of split(src, pw, ph, opt)) pool.push(r);
+      for (const r of split(src, pw, ph, opt)) pool.push({ ...r, stock: src.stock, from: p.id });
     }
-    return { newTiles: stockCount, reused, offcuts: pool };
+    return { newTiles: plan.length, reused, offcuts: pool, plan };
   }
 
   // Deux découpes guillotine possibles : on garde celle qui laisse la plus grande chute.
@@ -46,7 +49,7 @@ const Optimizer = (() => {
     const a = usable([{ w: rw, h: src.h }, { w: pw, h: rh }]);
     const b = usable([{ w: src.w, h: rh }, { w: rw, h: ph }]);
     const biggest = list => list.reduce((m, r) => Math.max(m, r.w * r.h), 0);
-    return (biggest(a) >= biggest(b) ? a : b).map(r => ({ ...r, stock: src.stock }));
+    return biggest(a) >= biggest(b) ? a : b;
   }
 
   return { run };

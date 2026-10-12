@@ -153,10 +153,16 @@
     <p id="resultError" class="error" hidden></p>
     <table class="stats"><tbody id="statsBody"></tbody></table>
     <h3>Liste des coupes</h3>
-    <p class="hint">Cotes du rectangle à découper, dans le sens du carreau (longueur × largeur). Cliquer sur une ligne pour la repérer sur le plan.</p>
+    <p class="hint">Cotes du rectangle à découper, dans le sens du carreau (longueur × largeur). Chaque carreau neuf entamé pour les coupes reçoit un numéro (n°1, n°2…). « Chute de C3 » : tailler la coupe dans le reste du carreau qui a servi à C3. Cliquer sur une ligne ou sur un carreau du plan pour le repérer.</p>
     <table class="grid cuts">
-      <thead><tr><th>N°</th><th>Long. × Larg. (mm)</th><th>Source</th></tr></thead>
+      <thead><tr><th>N°</th><th>Long. × Larg. (mm)</th><th>Taillée dans</th></tr></thead>
       <tbody id="cutBody"></tbody>
+    </table>
+    <h3>Découpe des carreaux neufs</h3>
+    <p class="hint">Pour chaque carreau neuf, les coupes à y tailler dans l'ordre : la première dans le carreau entier, les suivantes dans ce qu'il en reste.</p>
+    <table class="grid plan">
+      <thead><tr><th>Carreau</th><th>Coupes</th></tr></thead>
+      <tbody id="planBody"></tbody>
     </table>
   </aside>
 </div>
