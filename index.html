@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calepinage carrelage</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1>Calepinage carrelage</h1>
+  <input id="projectName" type="text" data-bind="name" maxlength="100" placeholder="Nom de la pièce" aria-label="Nom de la pièce">
+  <div class="actions">
+    <button id="btnUndo" type="button" title="Retour arrière (Ctrl+Z)" disabled>&#8630; Retour</button>
+    <button id="btnRedo" type="button" title="Retour avant (Ctrl+Y)" disabled>Avant &#8631;</button>
+    <span class="sep"></span>
+    <button id="btnNew" type="button">Nouveau</button>
+    <button id="btnOpen" type="button">Ouvrir un JSON…</button>
+    <button id="btnSave" type="button" class="primary">Enregistrer en JSON</button>
+    <input id="fileInput" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <details open>
+      <summary>1. Géométrie de la pièce</summary>
+      <div class="body">
+        <label class="field"><span>Forme éditée</span><select id="shapeSelect"></select></label>
+        <label class="field" id="obstacleNameRow" hidden><span>Nom de l'obstacle</span><input id="obstacleName" type="text" maxlength="60"></label>
+        <div class="btns">
+          <button id="btnAddObstacle" type="button">+ Obstacle</button>
+          <button id="btnDelObstacle" type="button">Supprimer l'obstacle</button>
+        </div>
+        <div class="btns">
+          <select id="presetSelect" aria-label="Modèle de pièce">
+            <option value="rect">Rectangle</option>
+            <option value="L">En L</option>
+            <option value="T">En T</option>
+            <option value="U">En U</option>
+            <option value="chamfer">Pan coupé</option>
+            <option value="irregular">Quelconque</option>
+          </select>
+          <button id="btnPreset" type="button">Appliquer à la pièce</button>
+        </div>
+        <div class="tabs">
+          <button type="button" data-mode="xy" class="active">Coordonnées X / Y</button>
+          <button type="button" data-mode="walls">Murs (longueur / angle)</button>
+        </div>
+        <table class="grid">
+          <thead id="vertexHead"></thead>
+          <tbody id="vertexBody"></tbody>
+        </table>
+        <button id="btnAddVertex" type="button">+ Ajouter un sommet</button>
+        <p class="hint" id="wallHint" hidden>Angle : 0° = vers la droite, 90° = vers le haut, 180° = vers la gauche, 270° = vers le bas. Modifier un mur décale les sommets suivants ; le dernier mur referme la pièce automatiquement.</p>
+        <p class="hint">Sur le plan : glisser un sommet pour le déplacer, double-clic sur un mur pour ajouter un sommet, clic droit sur un sommet pour le supprimer. Maintenir <kbd>Alt</kbd> pour désactiver le magnétisme.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>2. Carreaux et joints</summary>
+      <div class="body">
+        <label class="field"><span>Longueur du carreau (mm)</span><input type="number" data-bind="tile.length" min="10" max="5000" step="any"></label>
+        <label class="field"><span>Largeur du carreau (mm)</span><input type="number" data-bind="tile.width" min="10" max="5000" step="any"></label>
+        <label class="field"><span>Pose</span>
+          <select data-bind="pattern">
+            <option value="straight">Droite (alignée)</option>
+            <option value="third">Décalée 1/3 : 100 % / 66 % / 33 %</option>
+            <option value="twoThirds">Décalée 1/3 alternée : 100 % / 66 %</option>
+            <option value="half">Décalée 1/2 : 100 % / 50 %</option>
+          </select>
+        </label>
+        <label class="field"><span>Joint entre carreaux (mm)</span><input type="number" data-bind="joint.inner" min="0" max="50" step="0.5"></label>
+        <label class="field"><span>Joint périphérique (mm)</span><input type="number" data-bind="joint.perimeter" min="0" max="100" step="0.5"></label>
+        <p class="hint">Le décalage des rangées se fait dans le sens de la longueur du carreau.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>3. Carreau de départ</summary>
+      <div class="body">
+        <label class="field"><span>Position X (mm)</span><input type="number" data-bind="start.x" step="any"></label>
+        <label class="field"><span>Position Y (mm)</span><input type="number" data-bind="start.y" step="any"></label>
+        <label class="field"><span>Point du carreau placé</span>
+          <select data-bind="start.anchor">
+            <option value="bl">Coin bas-gauche</option>
+            <option value="br">Coin bas-droit</option>
+            <option value="tl">Coin haut-gauche</option>
+            <option value="tr">Coin haut-droit</option>
+            <option value="c">Centre</option>
+          </select>
+        </label>
+        <label class="field"><span>Orientation (°)</span><input type="number" data-bind="start.angle" min="-360" max="360" step="any"></label>
+        <div class="btns">
+          <button type="button" data-angle="0">0°</button>
+          <button type="button" data-angle="90">90°</button>
+          <button type="button" data-angle="45">45°</button>
+          <button type="button" id="btnPlaceStart">Placer sur le plan</button>
+        </div>
+        <div class="btns">
+          <select id="startVertex" aria-label="Sommet de référence"></select>
+          <button type="button" id="btnAlignVertex" title="Place le carreau dans l'angle de ce sommet (joint périphérique inclus)">Caler dans l'angle</button>
+          <button type="button" id="btnOrientWall" title="Oriente les carreaux parallèlement au mur partant de ce sommet">Suivre le mur</button>
+        </div>
+        <div class="btns">
+          <button type="button" id="btnCenter">Centrer dans la pièce</button>
+        </div>
+        <p class="hint">Le carreau de départ est encadré en rouge ; la flèche indique le sens de la longueur. Le point rouge se déplace à la souris.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>4. Optimisation des chutes</summary>
+      <div class="body">
+        <label class="check"><input type="checkbox" data-bind="optim.reuse"> Réutiliser les chutes</label>
+        <label class="field"><span>Épaisseur de coupe (mm)</span><input type="number" data-bind="optim.kerf" min="0" max="20" step="0.5"></label>
+        <label class="field"><span>Chute minimale réutilisable (mm)</span><input type="number" data-bind="optim.minOffcut" min="0" max="1000" step="1"></label>
+        <label class="check"><input type="checkbox" data-bind="optim.allowRotate"> Autoriser la rotation à 90° des chutes</label>
+        <p class="hint">Rotation déconseillée pour les carreaux à motif ou veinage orienté.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>5. Achat</summary>
+      <div class="body">
+        <label class="field"><span>Marge casse / sécurité (%)</span><input type="number" data-bind="purchase.margin" min="0" max="100" step="1"></label>
+        <label class="field"><span>Carreaux par boîte (0 = ignorer)</span><input type="number" data-bind="purchase.tilesPerBox" min="0" max="1000" step="1"></label>
+      </div>
+    </details>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <button id="btnFit" type="button">Ajuster la vue</button>
+      <label class="check"><input type="checkbox" id="chkLabels" checked> Repères des coupes</label>
+      <label class="check"><input type="checkbox" id="chkDims" checked> Cotes</label>
+      <label class="check">Magnétisme <input type="number" id="snapInput" value="10" min="0" step="1"> mm</label>
+      <span class="legend">
+        <i class="sw full"></i>Entier
+        <i class="sw cut-new"></i>Coupe (carreau neuf)
+        <i class="sw cut-reuse"></i>Coupe (dans une chute)
+        <i class="sw obstacle"></i>Obstacle
+      </span>
+    </div>
+    <div id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="tooltip" hidden></div>
+    </div>
+  </main>
+
+  <aside class="panel results">
+    <h2>Résultats</h2>
+    <p id="resultError" class="error" hidden></p>
+    <table class="stats"><tbody id="statsBody"></tbody></table>
+    <h3>Liste des coupes</h3>
+    <p class="hint">Cotes du rectangle à découper, dans le sens du carreau (longueur × largeur). Cliquer sur une ligne pour la repérer sur le plan.</p>
+    <table class="grid cuts">
+      <thead><tr><th>N°</th><th>Long. × Larg. (mm)</th><th>Source</th></tr></thead>
+      <tbody id="cutBody"></tbody>
+    </table>
+  </aside>
+</div>
+
+<script src="js/geometry.js"></script>
+<script src="js/optimizer.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/project.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
