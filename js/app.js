@@ -15,7 +15,7 @@
   let project = loadInitial();
   let result = null;
   let selected = 0; // 0 = pièce, i > 0 = obstacle i-1
-  let tableMode = 'xy';
+  let tableMode = 'walls';
   const view = { scale: 0.1, ox: 0, oy: 0, dpr: 1, w: 0, h: 0 };
   const ui = { labels: true, dims: true, snap: 10, placing: false, hoverTile: null, highlightId: null, drag: null };
 
@@ -94,6 +94,32 @@
     let ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
     if (ang < 0) ang += 360;
     return { len: Math.hypot(b.x - a.x, b.y - a.y), ang: ang >= 359.995 ? 0 : ang };
+  }
+
+  const TURN_PRESETS = [
+    [90, '↰ 90° G'], [-90, '↱ 90° D'],
+    [45, '↰ 45° G'], [-45, '↱ 45° D'],
+    [135, '↰ 135° G'], [-135, '↱ 135° D'],
+    [0, '↑ 0°'],
+  ];
+  const DIR_PRESETS = [[0, '→ droite'], [90, '↑ haut'], [180, '← gauche'], [270, '↓ bas']];
+
+  function normTurn(a) {
+    let t = ((a % 360) + 360) % 360;
+    if (t > 180) t -= 360;
+    return Math.abs(t) < 0.005 ? 0 : t;
+  }
+
+  // Virage au sommet i, entre le mur i-1 et le mur i : positif = à gauche.
+  const turnAt = (pts, i) => normTurn(wall(pts, i).ang - wall(pts, (i - 1 + pts.length) % pts.length).ang);
+  const turnText = t => (t > 0 ? `↰ ${fmt(t, 0, 1)}° G` : t < 0 ? `↱ ${fmt(-t, 0, 1)}° D` : '↑ 0°');
+
+  function rotateChain(pts, i, deltaDeg) {
+    const c = pts[i], a = (deltaDeg * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+    for (let k = i + 1; k < pts.length; k++) {
+      const dx = pts[k].x - c.x, dy = pts[k].y - c.y;
+      pts[k] = { x: round2(c.x + dx * cos - dy * sin), y: round2(c.y + dx * sin + dy * cos) };
+    }
   }
 
   const getPath = (obj, path) => path.split('.').reduce((o, k) => o[k], obj);
@@ -217,6 +243,26 @@
     return td;
   }
 
+  function angleCell(i, kind) {
+    const td = document.createElement('td');
+    td.className = 'angle';
+    const sel = document.createElement('select');
+    sel.dataset.i = String(i);
+    sel.dataset.k = kind;
+    for (const [v, label] of kind === 'dir' ? DIR_PRESETS : TURN_PRESETS) sel.add(new Option(label, String(v)));
+    sel.add(new Option('Autre…', 'other'));
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.step = 'any';
+    inp.dataset.i = String(i);
+    inp.dataset.f = kind;
+    inp.title = kind === 'dir'
+      ? 'Direction en degrés (0° = vers la droite, 90° = vers le haut)'
+      : 'Virage en degrés (positif = à gauche, négatif = à droite)';
+    td.append(sel, inp);
+    return td;
+  }
+
   function buildVertexTable() {
     const pts = shapePoints(selected);
     const n = pts.length;
@@ -224,7 +270,7 @@
     head.replaceChildren();
     body.replaceChildren();
     const hr = document.createElement('tr');
-    const titles = tableMode === 'xy' ? ['#', 'X (mm)', 'Y (mm)', ''] : ['Mur', 'Longueur (mm)', 'Angle (°)', ''];
+    const titles = tableMode === 'xy' ? ['#', 'X (mm)', 'Y (mm)', ''] : ['Mur', 'Longueur (mm)', 'Virage', ''];
     titles.forEach(t => { const th = document.createElement('th'); th.textContent = t; hr.appendChild(th); });
     head.appendChild(hr);
 
@@ -233,13 +279,16 @@
       if (tableMode === 'xy') {
         tr.append(cell(String(i + 1)), inputCell(i, 'x'), inputCell(i, 'y'));
       } else {
-        tr.appendChild(cell(`${i + 1} → ${((i + 1) % n) + 1}`));
-        if (i < n - 1) tr.append(inputCell(i, 'len'), inputCell(i, 'ang'));
+        const label = cell(`${i + 1} → ${((i + 1) % n) + 1}`);
+        label.title = `Mur du sommet ${i + 1} au sommet ${((i + 1) % n) + 1}`;
+        tr.appendChild(label);
+        if (i < n - 1) tr.append(inputCell(i, 'len'), angleCell(i, i === 0 ? 'dir' : 'turn'));
         else {
           const l = cell('', 'ro'), a = cell('', 'ro');
           l.dataset.i = a.dataset.i = String(i);
           l.dataset.f = 'len';
-          a.dataset.f = 'ang';
+          a.dataset.f = 'turnRo';
+          l.title = a.title = 'Mur de fermeture, calculé automatiquement';
           tr.append(l, a);
         }
       }
@@ -255,6 +304,7 @@
       body.appendChild(tr);
     });
     $('wallHint').hidden = tableMode !== 'walls';
+    $('btnAddVertex').textContent = tableMode === 'walls' ? '+ Ajouter un mur' : '+ Ajouter un sommet';
     fillVertexValues();
   }
 
@@ -265,13 +315,35 @@
 
   function fillVertexValues() {
     const pts = shapePoints(selected);
-    $('vertexBody').querySelectorAll('[data-f]').forEach(el => {
+    const body = $('vertexBody');
+    body.querySelectorAll('[data-f]').forEach(el => {
       const i = +el.dataset.i, f = el.dataset.f;
-      const v = f === 'x' || f === 'y' ? pts[i][f] : wall(pts, i)[f];
-      const txt = String(round2(v));
-      if (el.tagName === 'INPUT') { if (el !== document.activeElement) el.value = txt; }
-      else el.textContent = txt;
+      let v;
+      if (f === 'x' || f === 'y') v = pts[i][f];
+      else if (f === 'len') v = wall(pts, i).len;
+      else if (f === 'dir') v = wall(pts, i).ang;
+      else v = turnAt(pts, i);
+      if (el.tagName === 'INPUT') { if (el !== document.activeElement) el.value = String(round2(v)); }
+      else el.textContent = f === 'turnRo' ? turnText(v) : fmtMm(v);
     });
+    body.querySelectorAll('select[data-k]').forEach(sel => {
+      const i = +sel.dataset.i;
+      const inp = sel.nextElementSibling;
+      if (inp !== document.activeElement) {
+        const v = sel.dataset.k === 'dir' ? wall(pts, i).ang : turnAt(pts, i);
+        const preset = [...sel.options].find(o => o.value !== 'other' && Math.abs(+o.value - v) < 0.01);
+        sel.value = preset ? preset.value : 'other';
+      }
+      inp.hidden = sel.value !== 'other';
+    });
+  }
+
+  function applyAngle(i, kind, v) {
+    const pts = shapePoints(selected);
+    const cur = kind === 'dir' ? wall(pts, i).ang : turnAt(pts, i);
+    if (Math.abs(v - cur) < 1e-9) return;
+    rotateChain(pts, i, v - cur);
+    changed();
   }
 
   function onVertexInput(e) {
@@ -281,16 +353,16 @@
     if (!Number.isFinite(v)) return;
     const pts = shapePoints(selected);
     const i = +el.dataset.i, f = el.dataset.f;
+    if (f === 'dir' || f === 'turn') { applyAngle(i, f, v); return; }
     if (f === 'x' || f === 'y') {
       pts[i][f] = v;
     } else {
       const cur = wall(pts, i);
-      const len = f === 'len' ? v : cur.len;
-      const ang = ((f === 'ang' ? v : cur.ang) * Math.PI) / 180;
-      if (len <= 0) return;
+      const ang = (cur.ang * Math.PI) / 180;
+      if (v <= 0 || cur.len === 0) return;
       const a = pts[i], b = pts[i + 1];
-      const dx = round2(a.x + len * Math.cos(ang)) - b.x;
-      const dy = round2(a.y + len * Math.sin(ang)) - b.y;
+      const dx = round2(a.x + v * Math.cos(ang)) - b.x;
+      const dy = round2(a.y + v * Math.sin(ang)) - b.y;
       for (let k = i + 1; k < pts.length; k++) {
         pts[k].x = round2(pts[k].x + dx);
         pts[k].y = round2(pts[k].y + dy);
@@ -917,6 +989,18 @@
     }));
 
     $('vertexBody').addEventListener('input', onVertexInput);
+    $('vertexBody').addEventListener('change', e => {
+      const sel = e.target.closest('select[data-k]');
+      if (!sel) return;
+      const inp = sel.nextElementSibling;
+      if (sel.value === 'other') {
+        inp.hidden = false;
+        inp.focus();
+        inp.select();
+        return;
+      }
+      applyAngle(+sel.dataset.i, sel.dataset.k, +sel.value);
+    });
     $('vertexBody').addEventListener('click', e => {
       const btn = e.target.closest('button[data-del]');
       if (btn) deleteVertex(+btn.dataset.del);
@@ -925,7 +1009,14 @@
     $('btnAddVertex').addEventListener('click', () => {
       const pts = shapePoints(selected);
       const a = pts[pts.length - 1], b = pts[0];
-      pts.push({ x: round2((a.x + b.x) / 2), y: round2((a.y + b.y) / 2) });
+      if (tableMode === 'walls') {
+        // Nouveau mur de 1 m après le dernier mur saisi, en tournant dans le sens de parcours de la pièce.
+        const turn = Geo.signedArea(pts) >= 0 ? 90 : -90;
+        const ang = ((wall(pts, pts.length - 2).ang + turn) * Math.PI) / 180;
+        pts.push({ x: round2(a.x + 1000 * Math.cos(ang)), y: round2(a.y + 1000 * Math.sin(ang)) });
+      } else {
+        pts.push({ x: round2((a.x + b.x) / 2), y: round2((a.y + b.y) / 2) });
+      }
       afterTopologyChange();
     });
 

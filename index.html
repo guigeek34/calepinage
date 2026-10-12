@@ -44,15 +44,15 @@
           <button id="btnPreset" type="button">Appliquer à la pièce</button>
         </div>
         <div class="tabs">
-          <button type="button" data-mode="xy" class="active">Coordonnées X / Y</button>
-          <button type="button" data-mode="walls">Murs (longueur / angle)</button>
+          <button type="button" data-mode="walls" class="active">Murs (longueur / virage)</button>
+          <button type="button" data-mode="xy">Coordonnées X / Y</button>
         </div>
         <table class="grid">
           <thead id="vertexHead"></thead>
           <tbody id="vertexBody"></tbody>
         </table>
-        <button id="btnAddVertex" type="button">+ Ajouter un sommet</button>
-        <p class="hint" id="wallHint" hidden>Angle : 0° = vers la droite, 90° = vers le haut, 180° = vers la gauche, 270° = vers le bas. Modifier un mur décale les sommets suivants ; le dernier mur referme la pièce automatiquement.</p>
+        <button id="btnAddVertex" type="button">+ Ajouter un mur</button>
+        <p class="hint" id="wallHint">Faites le tour de la pièce mur après mur, en partant du sommet 1. Pour chaque mur, saisissez sa longueur et le virage pris au coin d'où il part (↰ G = à gauche, ↱ D = à droite, « Autre… » pour un angle libre : positif à gauche, négatif à droite). Pour le premier mur, on choisit sa direction. Modifier un mur déplace tous les murs suivants. Le dernier mur, en gris, referme la pièce et se calcule tout seul : comparez-le à votre mesure pour vérifier la saisie.</p>
         <p class="hint">Sur le plan : glisser un sommet pour le déplacer, double-clic sur un mur pour ajouter un sommet, clic droit sur un sommet pour le supprimer. Maintenir <kbd>Alt</kbd> pour désactiver le magnétisme.</p>
       </div>
     </details>

@@ -74,6 +74,10 @@ table.grid input { width: 100%; }
 table.grid td.ro { color: #6b7280; font-style: italic; }
 table.grid td.del { width: 28px; }
 table.grid td.del button { padding: 1px 7px; }
+table.grid td.angle select { width: 100%; }
+table.grid td.angle input { margin-top: 2px; }
+#vertexBody td:first-child { white-space: nowrap; }
+#vertexBody input[data-f="len"] { width: 72px; }
 
 table.cuts tbody tr { cursor: pointer; }
 table.cuts tbody tr:hover { background: #f1f5ff; }

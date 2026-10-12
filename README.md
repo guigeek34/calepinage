@@ -35,13 +35,29 @@ La liste « Modèle » suivie du bouton **Appliquer à la pièce** remplace la p
 
 Deux modes au choix :
 
-- **Coordonnées X / Y** : on saisit la position de chaque sommet.
-- **Murs (longueur / angle)** : on saisit chaque mur comme on le mesure sur place, en tournant autour de la pièce.
-  - Angle : 0° = vers la droite, 90° = vers le haut, 180° = vers la gauche, 270° = vers le bas.
-  - Modifier un mur décale tous les sommets suivants.
-  - Le dernier mur, affiché en gris, est calculé automatiquement pour refermer la pièce.
+#### Murs (longueur / virage), mode par défaut
 
-Le bouton **+ Ajouter un sommet** ajoute un sommet au milieu du dernier mur. La croix **×** supprime un sommet. Une forme garde toujours au moins 3 sommets.
+On décrit la pièce comme on la mesure sur place, en faisant le tour des murs depuis le sommet 1.
+
+| Colonne | Contenu |
+|---------|---------|
+| Mur | `1 → 2` = mur qui va du sommet 1 au sommet 2 (numéros visibles sur le plan) |
+| Longueur | Longueur du mur en mm |
+| Virage | Pour le 1er mur : sa direction (→ droite, ↑ haut, ← gauche, ↓ bas). Pour les suivants : le virage pris au coin d'où part le mur (↰ G = à gauche, ↱ D = à droite, de 45°, 90° ou 135°, ↑ 0° = tout droit, ou « Autre… » pour un angle libre, positif à gauche, négatif à droite) |
+
+- Modifier la longueur ou le virage d'un mur déplace tous les murs suivants, qui gardent leurs propres longueurs et virages.
+- Le **dernier mur** (en gris) referme la pièce : sa longueur et son virage sont calculés. Les comparer aux mesures permet de repérer une erreur de saisie.
+- **+ Ajouter un mur** ajoute un mur de 1 m après le dernier mur saisi, en tournant dans le même sens que le reste de la pièce.
+
+Exemple, pièce en L en tournant à gauche : `5000 →`, `2500 ↰`, `2500 ↰`, `1500 ↱`, `2500 ↰`. Le dernier mur (4000 ↰) se calcule seul.
+
+#### Coordonnées X / Y
+
+On saisit la position de chaque sommet. **+ Ajouter un sommet** ajoute un sommet au milieu du dernier mur.
+
+Dans les deux modes, la croix **×** supprime un sommet. Une forme garde toujours au moins 3 sommets.
+
+> Quel que soit le mode de saisie, la pièce est enregistrée dans le fichier JSON sous forme de coordonnées de sommets.
 
 ### Édition sur le plan
 
@@ -162,12 +178,19 @@ Exemple : un carreau coupé pour poser un morceau de 55 % laisse une chute d'env
 
 ### Liste des coupes
 
-Chaque morceau coupé porte un numéro (`C1`, `C2`…), aussi affiché sur le plan. Pour chaque morceau, la liste indique :
+Chaque morceau coupé porte un numéro (`C1`, `C2`…), aussi affiché sur le plan. Chaque carreau neuf entamé pour les coupes reçoit lui aussi un numéro (`n°1`, `n°2`…). Pour chaque morceau, la liste indique :
 
 - les **dimensions à découper**, longueur × largeur, dans le sens du carreau ;
-- la **source** : `Neuf T3` signifie qu'il faut découper le carreau neuf n° 3, `Chute du T3` qu'il faut utiliser la chute restante du carreau n° 3.
+- **où le tailler** :
+  - `Carreau neuf n°3` : prendre un carreau neuf, qui devient le carreau n°3 ;
+  - `Chute de C8 (n°3)` : prendre le reste du carreau n°3 après la découpe de C8 ;
+  - `↻` : la chute doit être tournée de 90°.
 
-Cliquer sur une ligne met le morceau en évidence sur le plan. Survoler un carreau sur le plan affiche ses informations.
+Cliquer sur une ligne met le morceau en évidence sur le plan. Inversement, cliquer sur un carreau coupé du plan sélectionne sa ligne dans la liste. Survoler un carreau sur le plan affiche ses informations.
+
+### Découpe des carreaux neufs
+
+Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par exemple, `n°1 : C3 (930×200) → C10 (128×200)` veut dire qu'on taille d'abord C3 dans un carreau entier, puis C10 dans ce qui reste.
 
 ### Couleurs du plan
 
