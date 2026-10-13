@@ -30,10 +30,39 @@ const Layout = (() => {
     };
   }
 
+  const TOL = 0.01;
+  const onSide = (a, b, x0, y0, x1, y1) =>
+    (Math.abs(a.x - x0) < TOL && Math.abs(b.x - x0) < TOL) || (Math.abs(a.x - x1) < TOL && Math.abs(b.x - x1) < TOL) ||
+    (Math.abs(a.y - y0) < TOL && Math.abs(b.y - y0) < TOL) || (Math.abs(a.y - y1) < TOL && Math.abs(b.y - y1) < TOL);
+
+  // Traits de coupe d'une pièce : `edges` (monde) hors bords du carreau, `traits` (repère pièce) hors rectangle w × h.
+  function cutShape(f, piece, holes, u0, v0, L, W, dx, dy, w, h) {
+    const edges = [], traits = [];
+    const visit = (poly, isHole) => {
+      const pts = Geo.simplify(poly);
+      const loc = pts.map(p => { const l = f.toLocal(p); return { x: l.u - u0, y: l.v - v0 }; });
+      const rel = loc.map(p => ({ x: p.x - dx, y: p.y - dy }));
+      for (let i = 0, n = pts.length; i < n; i++) {
+        const j = (i + 1) % n;
+        if (onSide(loc[i], loc[j], 0, 0, L, W)) continue;
+        edges.push([pts[i], pts[j]]);
+        if (!isHole && !onSide(rel[i], rel[j], 0, 0, w, h)) {
+          traits.push({ a: rel[i], b: rel[j], len: Math.hypot(rel[j].x - rel[i].x, rel[j].y - rel[i].y) });
+        }
+      }
+      return rel;
+    };
+    const outline = visit(piece, false);
+    const holeOutlines = holes.map(p => visit(p, true));
+    return { edges, traits, outline, holes: holeOutlines, complex: traits.length > 0 || holeOutlines.length > 0 };
+  }
+
   function compute(project) {
     const f = frame(project);
     const { L, W } = f;
-    const pu = L + project.joint.inner, pv = W + project.joint.inner;
+    const parquet = project.material === 'parquet';
+    const gap = parquet ? 0 : project.joint.inner;
+    const pu = L + gap, pv = W + gap;
     const seq = PATTERNS[project.pattern] || PATTERNS.straight;
     const zone = Geo.offset(project.room, project.joint.perimeter);
     const obstacles = project.obstacles.map(o => {
@@ -53,7 +82,7 @@ const Layout = (() => {
     const estimate = ((umax - umin) / pu + 3) * ((vmax - vmin) / pv + 3);
 
     if (zone.length < 3 || !(estimate < MAX_TILES)) {
-      error = zone.length < 3 ? 'La pièce doit comporter au moins 3 sommets distincts.' : 'Trop de carreaux à calculer : vérifiez les dimensions.';
+      error = zone.length < 3 ? 'La pièce doit comporter au moins 3 sommets distincts.' : 'Trop d\'éléments à calculer : vérifiez les dimensions.';
     } else {
       const r0 = Math.floor(vmin / pv) - 1, r1 = Math.ceil(vmax / pv);
       for (let r = r0; r <= r1; r++) {
@@ -70,14 +99,15 @@ const Layout = (() => {
           let area = Geo.area(piece);
           if (area < tileArea * 1e-4) continue;
 
-          let holed = false;
+          const holes = [];
           for (const ob of obstacles) {
             let h = Geo.clipConvex(ob.poly, rect);
             if (h.length < 3) continue;
             if (ob.convex) h = Geo.clipConvex(piece, Geo.ensureCCW(h));
             const ha = h.length >= 3 ? Geo.area(h) : 0;
-            if (ha > 1e-6) { area -= ha; holed = true; }
+            if (ha > 1e-6) { area -= ha; holes.push(h); }
           }
+          const holed = holes.length > 0;
           if (area < tileArea * 1e-4) continue;
 
           let bu0 = Infinity, bu1 = -Infinity, bv0 = Infinity, bv1 = -Infinity;
@@ -89,14 +119,15 @@ const Layout = (() => {
           const w = Math.min(L, bu1 - u0) - Math.max(0, bu0 - u0);
           const h = Math.min(W, bv1 - v0) - Math.max(0, bv0 - v0);
           const full = !holed && area > tileArea * (1 - 1e-6);
-          tiles.push({ row: r, col: c, rect, piece, area, full, w, h, source: full ? 'full' : null });
+          const shape = full ? null : cutShape(f, piece, holes, u0, v0, L, W, Math.max(0, bu0 - u0), Math.max(0, bv0 - v0), w, h);
+          tiles.push({ row: r, col: c, rect, piece, area, full, w, h, shape, source: full ? 'full' : null });
         }
       }
     }
 
     const cuts = tiles.filter(t => !t.full);
     cuts.forEach((t, i) => { t.id = i + 1; });
-    const opt = Optimizer.run(cuts, L, W, project.optim);
+    const opt = Optimizer.run(cuts, L, W, parquet ? { ...project.optim, allowRotate: false } : project.optim);
 
     const roomArea = Geo.area(project.room);
     const obstacleArea = project.obstacles.reduce((s, o) => s + Geo.area(o.points), 0);

@@ -3,6 +3,7 @@
 const Project = (() => {
   const PATTERNS = ['straight', 'half', 'third', 'twoThirds'];
   const ANCHORS = ['bl', 'br', 'tl', 'tr', 'c'];
+  const MATERIALS = ['tile', 'parquet'];
 
   const pts = arr => arr.map(([x, y]) => ({ x, y }));
   const presets = {
@@ -14,10 +15,11 @@ const Project = (() => {
     irregular: () => pts([[0, 0], [4200, -150], [4500, 2800], [2600, 3400], [300, 3100]]),
   };
 
-  function defaults() {
+  function defaults(material = 'tile') {
     return {
       version: 1,
       name: 'Ma pièce',
+      material: MATERIALS.includes(material) ? material : 'tile',
       room: presets.L(),
       obstacles: [],
       tile: { length: 600, width: 300 },
@@ -51,6 +53,7 @@ const Project = (() => {
     return {
       version: 1,
       name: typeof raw.name === 'string' ? raw.name.slice(0, 100) : d.name,
+      material: MATERIALS.includes(raw.material) ? raw.material : d.material,
       room,
       obstacles: (Array.isArray(raw.obstacles) ? raw.obstacles : [])
         .map((ob, i) => ({

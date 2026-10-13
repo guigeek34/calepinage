@@ -1,6 +1,6 @@
-# Calepinage carrelage
+# Calepinage carrelage et parquet
 
-Application web pour préparer la pose d'un carrelage : plan de pose, nombre de carreaux à acheter, liste des coupes et réutilisation des chutes.
+Application web pour préparer la pose d'un carrelage ou d'un parquet : plan de pose, nombre de carreaux ou de lames à acheter, liste des coupes et réutilisation des chutes.
 
 Elle fonctionne entièrement dans le navigateur : il n'y a rien à installer, aucun serveur à lancer et aucune connexion internet nécessaire.
 
@@ -14,12 +14,26 @@ Ouvrir `index.html` dans un navigateur récent (Chrome, Edge ou Firefox).
 
 | Zone | Contenu |
 |------|---------|
-| En-tête | Nom de la pièce, boutons Retour / Avant, Nouveau, Ouvrir un JSON, Enregistrer en JSON |
+| En-tête | Nom de la pièce, boutons Retour / Avant, Nouveau, Ouvrir un JSON, Enregistrer en JSON, Exporter en PDF |
 | Panneau de gauche | Réglages : géométrie, carreaux, carreau de départ, optimisation, achat |
 | Centre | Plan interactif du calepinage |
 | Panneau de droite | Résultats et liste des coupes |
 
 Toutes les cotes sont en **millimètres**. Le repère du plan a l'axe X vers la droite et l'axe Y vers le haut.
+
+## Carrelage ou parquet
+
+Le choix **Revêtement**, en haut du panneau de gauche, adapte l'application au matériau posé :
+
+| | Carrelage | Parquet |
+|---|-----------|---------|
+| Élément posé | Carreau | Lame |
+| Joint entre éléments | Réglable | Aucun : lames jointives, le réglage est masqué |
+| Bord des murs | Joint périphérique | Jeu de dilatation (en général 8 à 10 mm) |
+| Rotation des chutes à 90° | Possible en option | Jamais (sens du fil, emboîtement) |
+| Conditionnement | Boîtes | Paquets |
+
+Tous les textes de l'écran suivent ce choix. La suite de ce document emploie le vocabulaire du carrelage ; pour le parquet, lire « lame » pour « carreau » et « jeu de dilatation » pour « joint périphérique ». Le bouton **Nouveau** conserve le revêtement choisi.
 
 ---
 
@@ -68,7 +82,7 @@ Dans les deux modes, la croix **×** supprime un sommet. Une forme garde toujour
 | Clic droit sur un sommet | Supprime le sommet |
 | Maintenir `Alt` pendant le déplacement | Désactive le magnétisme |
 
-Le **magnétisme** (barre d'outils, 10 mm par défaut) cale les points sur une grille. La valeur 0 le désactive.
+Le **magnétisme** (barre d'outils, 10 mm par défaut) cale les points sur une grille. La valeur 0 le désactive. Le carreau de départ s'aimante en priorité sur les coins et les bords de la zone carrelable (pièce réduite du joint périphérique).
 
 ### Obstacles
 
@@ -186,11 +200,20 @@ Chaque morceau coupé porte un numéro (`C1`, `C2`…), aussi affiché sur le pl
   - `Chute de C8 (n°3)` : prendre le reste du carreau n°3 après la découpe de C8 ;
   - `↻` : la chute doit être tournée de 90°.
 
+Pour une **forme complexe** (encoche, mur en biais, trou autour d'un obstacle), les dimensions sont celles du rectangle à découper d'abord, suivies de « + forme ». Une ligne de détail ajoute :
+
+- un **croquis** de la pièce, vue de dessus telle que posée : la partie à garder en couleur, la partie à retirer hachurée, les traits de coupe en rouge, repérés par une lettre (A, B…) ;
+- les **étapes** de découpe en clair, par exemple :
+  1. Découper un rectangle de 600 × 300 mm.
+  2. Trait A (120 mm) : horizontal, à 66 mm du bord bas, en partant du bord droit.
+  3. Trait B (234 mm) : vertical, à 120 mm du bord droit, en partant du bord haut.
+  4. Retirer la partie hachurée.
+
 Cliquer sur une ligne met le morceau en évidence sur le plan. Inversement, cliquer sur un carreau coupé du plan sélectionne sa ligne dans la liste. Survoler un carreau sur le plan affiche ses informations.
 
 ### Découpe des carreaux neufs
 
-Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par exemple, `n°1 : C3 (930×200) → C10 (128×200)` veut dire qu'on taille d'abord C3 dans un carreau entier, puis C10 dans ce qui reste.
+Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par exemple, `n°1 : C3 (930×200) → C10 (128×200)` veut dire qu'on taille d'abord C3 dans un carreau entier, puis C10 dans ce qui reste. La mention `forme` signale une forme complexe, détaillée dans la liste des coupes.
 
 ### Couleurs du plan
 
@@ -200,6 +223,7 @@ Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par e
 | Orange | Coupe dans un carreau neuf |
 | Vert | Coupe dans une chute |
 | Gris | Obstacle |
+| Trait rouge | Bord à couper |
 
 ---
 
@@ -211,6 +235,20 @@ Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par e
 | Glisser dans le vide (ou clic molette) | Déplacer la vue |
 | **Ajuster la vue** | Recadrer sur la pièce |
 | Cases à cocher de la barre d'outils | Afficher ou masquer les repères des coupes et les cotes des murs |
+
+Sur tablette (écran tactile) :
+
+| Geste | Effet |
+|-------|-------|
+| Glisser un doigt dans le vide | Déplacer la vue |
+| Glisser un sommet ou le point rouge | Le déplacer (zone de prise élargie au doigt) |
+| Pincer à deux doigts | Zoomer |
+| Toucher une coupe | La sélectionner et afficher ses informations |
+| Double toucher sur un mur / appui long sur un sommet | Ajouter / supprimer un sommet, selon le navigateur |
+
+### Affichage sur écran étroit
+
+En dessous de 1100 px de large (tablette, petite fenêtre), les trois zones sont empilées et la page défile : réglages (sur deux colonnes si la largeur le permet), puis plan, puis résultats.
 
 ---
 
@@ -227,6 +265,7 @@ Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par e
 {
   "version": 1,
   "name": "Salle de bain",
+  "material": "tile",
   "room": [ { "x": 0, "y": 0 }, { "x": 4000, "y": 0 }, { "x": 4000, "y": 3000 }, { "x": 0, "y": 3000 } ],
   "obstacles": [
     { "name": "Douche", "points": [ { "x": 0, "y": 0 }, { "x": 900, "y": 0 }, { "x": 900, "y": 900 }, { "x": 0, "y": 900 } ] }
@@ -242,11 +281,23 @@ Ce tableau regroupe les coupes par carreau neuf, dans l'ordre de découpe. Par e
 
 | Champ | Valeurs |
 |-------|---------|
+| `material` | `tile` (carrelage), `parquet` (parquet : `joint.inner` et `optim.allowRotate` sont ignorés) |
 | `pattern` | `straight` (droite), `third` (1/3 : 100/66/33), `twoThirds` (100/66), `half` (1/2) |
 | `start.anchor` | `bl` bas-gauche, `br` bas-droit, `tl` haut-gauche, `tr` haut-droit, `c` centre |
 | `start.angle` | degrés, sens anti-horaire |
 
 Le fichier peut être modifié à la main. Les valeurs absentes ou invalides sont remplacées par les valeurs par défaut au chargement.
+
+### Export PDF
+
+**Exporter en PDF** télécharge un fichier `<nom de la pièce>.pdf` au format A4 portrait, généré directement dans le navigateur (aucune impression ni connexion nécessaire) :
+
+1. **Plan** sur une page entière, en vectoriel (net à tous les zooms) : carreaux, repères et dimensions des coupes, bords à couper en rouge, cotes des murs, carreau de départ et légende. Si la pièce est plus large que haute, le plan est pivoté d'un quart de tour pour occuper au mieux la page.
+2. **Paramètres** et **résultats**.
+3. **Liste des coupes**, avec croquis et étapes pour les formes complexes, puis **découpe des carreaux neufs**.
+4. **Fichier du projet (JSON)**, en police à chasse fixe avec numéros de ligne et coloration, pour pouvoir le recopier et le rouvrir.
+
+Les flèches (→, ↻…) sont remplacées par des équivalents texte (`->`, `(pivotée)`), les polices standard du PDF ne les contenant pas.
 
 ---
 
@@ -268,5 +319,6 @@ calpinage/
     ├── layout.js     Génération de la pose et calcul des résultats
     ├── optimizer.js  Réutilisation des chutes
     ├── project.js    Paramètres par défaut, contrôle des fichiers JSON, modèles de pièces
-    └── app.js        Plan interactif, panneaux et historique
+    ├── pdf.js        Générateur PDF minimal (A4, polices standard, dessin vectoriel)
+    └── app.js        Plan interactif, panneaux, historique et export PDF
 ```

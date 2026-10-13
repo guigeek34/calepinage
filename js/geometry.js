@@ -53,6 +53,25 @@ const Geo = (() => {
     return out;
   }
 
+  // Retire les sommets alignés et les pointes dégénérées (artéfacts du découpage).
+  function simplify(poly, tol = 1e-3) {
+    let pts = dedupe(poly);
+    for (let i = 0; pts.length > 3 && i < pts.length;) {
+      const n = pts.length;
+      const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+      const l = Math.hypot(c.x - a.x, c.y - a.y);
+      const cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      if (l < 1e-6 || Math.abs(cr) / l < tol) {
+        pts.splice(i, 1);
+        pts = dedupe(pts);
+        i = 0;
+      } else {
+        i++;
+      }
+    }
+    return pts;
+  }
+
   function isConvex(poly) {
     let sign = 0;
     for (let i = 0, n = poly.length; i < n; i++) {
@@ -135,5 +154,5 @@ const Geo = (() => {
     return { x, y, t, d: Math.hypot(p.x - x, p.y - y) };
   }
 
-  return { signedArea, area, bbox, ensureCCW, centroid, dedupe, isConvex, clipConvex, offset, pointInPolygon, closestOnSegment };
+  return { signedArea, area, bbox, ensureCCW, centroid, dedupe, simplify, isConvex, clipConvex, offset, pointInPolygon, closestOnSegment };
 })();

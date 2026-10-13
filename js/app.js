@@ -3,7 +3,7 @@
   const STORAGE_KEY = 'calepinage.project';
   const COLORS = {
     bg: '#fbfbfb', grid: '#eeeeee', gridMajor: '#dadada', joint: '#bdb7ad',
-    full: '#f1e4c8', cutNew: '#f4a259', cutReuse: '#7cc6a4', obstacle: '#8b929c',
+    full: '#f1e4c8', cutNew: '#f4a259', cutReuse: '#7cc6a4', obstacle: '#8b929c', cutLine: '#e02424',
     room: '#1f2937', select: '#2563eb', start: '#dc2626', hover: '#1d4ed8',
   };
 
@@ -17,13 +17,96 @@
   let selected = 0; // 0 = pièce, i > 0 = obstacle i-1
   let tableMode = 'walls';
   const view = { scale: 0.1, ox: 0, oy: 0, dpr: 1, w: 0, h: 0 };
-  const ui = { labels: true, dims: true, snap: 10, placing: false, hoverTile: null, highlightId: null, drag: null };
+  const ui = { labels: true, dims: true, snap: 10, placing: false, hoverTile: null, highlightId: null, drag: null, touch: false };
 
   // ---------- Utilitaires ----------
   const fmt = (v, min = 0, max = min) => v.toLocaleString('fr-FR', { minimumFractionDigits: min, maximumFractionDigits: max });
   const fmtMm = v => fmt(v, 0, 1);
   const m2 = mm2 => `${fmt(mm2 / 1e6, 2)} m²`;
   const round2 = v => Math.round(v * 100) / 100;
+
+  // Vocabulaire selon le revêtement (carreau : masculin, lame : féminin).
+  const TEXTS = {
+    tile: {
+      title: 'Calepinage carrelage',
+      dims: 'Dimensions du carreau',
+      along: 'du carreau',
+      secElems: '2. Carreaux et joints',
+      secStart: '3. Carreau de départ',
+      length: 'Longueur du carreau (mm)',
+      width: 'Largeur du carreau (mm)',
+      perimeter: 'Joint périphérique (mm)',
+      offsetHint: 'Le décalage des rangées se fait dans le sens de la longueur du carreau.',
+      anchor: 'Point du carreau placé',
+      alignTitle: "Place le carreau dans l'angle de ce sommet (joint périphérique inclus)",
+      orientTitle: 'Oriente les carreaux parallèlement au mur partant de ce sommet',
+      startHint: 'Le carreau de départ est encadré en rouge ; la flèche indique le sens de la longueur. Le point rouge se déplace à la souris.',
+      rotateHint: 'Rotation déconseillée pour les carreaux à motif ou veinage orienté.',
+      margin: 'Marge casse / sécurité (%)',
+      perBox: 'Carreaux par boîte (0 = ignorer)',
+      legendFull: 'Entier',
+      legendNew: 'Coupe (carreau neuf)',
+      cutsHint: 'Cotes du rectangle à découper, dans le sens du carreau (longueur × largeur). Chaque carreau neuf entamé pour les coupes reçoit un numéro (n°1, n°2…). « Chute de C3 » : tailler la coupe dans le reste du carreau qui a servi à C3. Cliquer sur une ligne ou sur un carreau du plan pour le repérer. Formes complexes : croquis et étapes de découpe, pièce vue de dessus telle que posée ; les traits rouges du croquis sont les bords rouges du plan.',
+      planTitle: 'Découpe des carreaux neufs',
+      planHint: "Pour chaque carreau neuf, les coupes à y tailler dans l'ordre : la première dans le carreau entier, les suivantes dans ce qu'il en reste.",
+      planCol: 'Carreau',
+      statFloor: 'Surface carrelée',
+      statCovered: 'Couverte par les carreaux',
+      statGap: 'Joints et jeu périphérique',
+      statFull: 'Carreaux entiers posés',
+      statNew: 'Carreaux neufs entamés',
+      statTotal: 'Carreaux nécessaires',
+      statBoxes: 'Boîtes',
+      full: 'Carreau entier',
+      newN: n => `Carreau neuf n°${n}`,
+      fromNew: n => `Taillée dans le carreau neuf n°${n}`,
+      stockN: n => `carreau n°${n}`,
+    },
+    parquet: {
+      title: 'Calepinage parquet',
+      dims: 'Dimensions de la lame',
+      along: 'de la lame',
+      secElems: '2. Lames',
+      secStart: '3. Lame de départ',
+      length: 'Longueur de la lame (mm)',
+      width: 'Largeur de la lame (mm)',
+      perimeter: 'Jeu de dilatation périphérique (mm)',
+      offsetHint: 'Lames jointives (pas de joint). Le décalage des rangées se fait dans le sens de la longueur de la lame. Jeu de dilatation le long des murs : en général 8 à 10 mm.',
+      anchor: 'Point de la lame placé',
+      alignTitle: "Place la lame dans l'angle de ce sommet (jeu de dilatation inclus)",
+      orientTitle: 'Oriente les lames parallèlement au mur partant de ce sommet',
+      startHint: 'La lame de départ est encadrée en rouge ; la flèche indique le sens de la longueur. Le point rouge se déplace à la souris.',
+      rotateHint: 'Les chutes ne sont jamais tournées de 90° (sens du fil et emboîtement des lames).',
+      margin: 'Marge de sécurité (%)',
+      perBox: 'Lames par paquet (0 = ignorer)',
+      legendFull: 'Entière',
+      legendNew: 'Coupe (lame neuve)',
+      cutsHint: 'Cotes du rectangle à découper, dans le sens de la lame (longueur × largeur). Chaque lame neuve entamée pour les coupes reçoit un numéro (n°1, n°2…). « Chute de C3 » : tailler la coupe dans le reste de la lame qui a servi à C3. Cliquer sur une ligne ou sur une lame du plan pour la repérer. Formes complexes : croquis et étapes de découpe, pièce vue de dessus telle que posée ; les traits rouges du croquis sont les bords rouges du plan.',
+      planTitle: 'Découpe des lames neuves',
+      planHint: "Pour chaque lame neuve, les coupes à y tailler dans l'ordre : la première dans la lame entière, les suivantes dans ce qu'il en reste.",
+      planCol: 'Lame',
+      statFloor: 'Surface parquetée',
+      statCovered: 'Couverte par les lames',
+      statGap: 'Jeu de dilatation',
+      statFull: 'Lames entières posées',
+      statNew: 'Lames neuves entamées',
+      statTotal: 'Lames nécessaires',
+      statBoxes: 'Paquets',
+      full: 'Lame entière',
+      newN: n => `Lame neuve n°${n}`,
+      fromNew: n => `Taillée dans la lame neuve n°${n}`,
+      stockN: n => `lame n°${n}`,
+    },
+  };
+  const T = key => (TEXTS[project.material] || TEXTS.tile)[key];
+
+  function applyMaterial() {
+    document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T(el.dataset.t); });
+    document.querySelectorAll('[data-t-title]').forEach(el => { el.title = T(el.dataset.tTitle); });
+    document.querySelectorAll('[data-only]').forEach(el => { el.hidden = el.dataset.only !== project.material; });
+    document.querySelectorAll('#materialTabs button').forEach(b => b.classList.toggle('active', b.dataset.material === project.material));
+    document.title = T('title');
+  }
 
   function loadInitial() {
     try {
@@ -131,6 +214,28 @@
 
   const snapV = (v, e) => (ui.snap > 0 && !(e && e.altKey) ? Math.round(v / ui.snap) * ui.snap : round2(v));
 
+  // Aimante le carreau de départ sur la zone carrelable (pièce réduite du joint périphérique) avant la grille.
+  function snapStart(w, e) {
+    if (e && e.altKey) return { x: round2(w.x), y: round2(w.y) };
+    const zone = result && result.zone ? result.zone : Geo.offset(project.room, project.joint.perimeter);
+    const tol = 10 / view.scale;
+    let best = null, bd = tol;
+    for (const z of zone) {
+      const d = Math.hypot(z.x - w.x, z.y - w.y);
+      if (d <= bd) { bd = d; best = z; }
+    }
+    if (best) return { x: round2(best.x), y: round2(best.y) };
+    const axis = (v, key) => {
+      let r = null, rd = tol;
+      for (const z of zone) {
+        const d = Math.abs(z[key] - v);
+        if (d <= rd) { rd = d; r = z[key]; }
+      }
+      return r !== null ? round2(r) : snapV(v, e);
+    };
+    return { x: axis(w.x, 'x'), y: axis(w.y, 'y') };
+  }
+
   // ---------- Mise à jour ----------
   let frameRequested = false;
   function changed() {
@@ -151,6 +256,7 @@
 
   function refreshAll() {
     if (selected > project.obstacles.length) selected = 0;
+    applyMaterial();
     buildShapeSelect();
     buildVertexTable();
     buildStartVertexSelect();
@@ -473,6 +579,7 @@
     drawShapes();
     if (result) drawStart();
     drawHighlights();
+    if (result && !result.error) drawCutLines();
     drawHandles();
     drawScaleBar();
   }
@@ -626,6 +733,27 @@
     for (const t of list) { pathPoly(t.piece); ctx.stroke(); }
   }
 
+  // Dessinés après la sélection pour rester visibles ; liseré blanc pour ressortir sur toutes les couleurs.
+  function drawCutLines() {
+    const all = new Path2D(), active = new Path2D();
+    for (const t of result.cuts) {
+      const p = t.id === ui.highlightId || t === ui.hoverTile ? active : all;
+      for (const [a, b] of t.shape.edges) {
+        const sa = toScreen(a), sb = toScreen(b);
+        p.moveTo(sa.x, sa.y); p.lineTo(sb.x, sb.y);
+      }
+    }
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 5; ctx.stroke(all);
+    ctx.lineWidth = 7; ctx.stroke(active);
+    ctx.strokeStyle = COLORS.cutLine;
+    ctx.lineWidth = 2.5; ctx.stroke(all);
+    ctx.lineWidth = 4; ctx.stroke(active);
+    ctx.restore();
+  }
+
   function drawHandles() {
     ctx.font = 'bold 11px system-ui, sans-serif';
     ctx.textAlign = 'left';
@@ -659,6 +787,32 @@
   }
 
   // ---------- Résultats ----------
+  function statsRows() {
+    const s = result.stats;
+    const p = project.purchase;
+    const wastePct = s.total ? (s.wasteArea / (s.total * result.frame.L * result.frame.W)) * 100 : 0;
+    return [
+      ['Surface de la pièce', m2(s.roomArea)],
+      ['Obstacles', m2(s.obstacleArea), 'sub'],
+      [T('statFloor'), m2(s.floorArea), 'strong'],
+      [T('statCovered'), m2(s.tiledArea), 'sub'],
+      [T('statGap'), m2(s.floorArea - s.tiledArea), 'sub'],
+      null,
+      [T('statFull'), fmt(s.fullCount)],
+      ['Morceaux coupés', fmt(s.cutCount)],
+      ['dont taillés dans des chutes', fmt(s.reused), 'sub'],
+      [T('statNew'), fmt(s.newForCuts), 'sub'],
+      [T('statTotal'), fmt(s.total), 'strong'],
+      ['Sans réutilisation des chutes', fmt(s.totalNoOptim), 'sub'],
+      null,
+      [`À acheter (marge ${fmt(p.margin, 0, 1)} %)`, fmt(s.totalWithMargin), 'strong'],
+      [T('statBoxes'), s.boxes === null ? '—' : `${fmt(s.boxes)} × ${p.tilesPerBox}`],
+      ['Surface achetée', m2(s.purchaseArea)],
+      ['Chutes perdues', `${m2(s.wasteArea)} (${fmt(wastePct, 0, 1)} %)`],
+      [`Coupes fines (< ${s.thinLimit} mm)`, fmt(s.thinCuts), s.thinCuts ? 'warn' : ''],
+    ];
+  }
+
   function updateResults() {
     const statsBody = $('statsBody'), cutBody = $('cutBody'), planBody = $('planBody'), err = $('resultError');
     statsBody.replaceChildren();
@@ -668,29 +822,7 @@
     err.textContent = result.error || '';
     if (result.error) return;
 
-    const s = result.stats;
-    const p = project.purchase;
-    const wastePct = s.total ? (s.wasteArea / (s.total * result.frame.L * result.frame.W)) * 100 : 0;
-    const rows = [
-      ['Surface de la pièce', m2(s.roomArea)],
-      ['Obstacles', m2(s.obstacleArea), 'sub'],
-      ['Surface carrelée', m2(s.floorArea), 'strong'],
-      ['Couverte par les carreaux', m2(s.tiledArea), 'sub'],
-      ['Joints et jeu périphérique', m2(s.floorArea - s.tiledArea), 'sub'],
-      null,
-      ['Carreaux entiers posés', fmt(s.fullCount)],
-      ['Morceaux coupés', fmt(s.cutCount)],
-      ['dont taillés dans des chutes', fmt(s.reused), 'sub'],
-      ['Carreaux neufs entamés', fmt(s.newForCuts), 'sub'],
-      ['Carreaux nécessaires', fmt(s.total), 'strong'],
-      ['Sans réutilisation des chutes', fmt(s.totalNoOptim), 'sub'],
-      null,
-      [`À acheter (marge ${fmt(p.margin, 0, 1)} %)`, fmt(s.totalWithMargin), 'strong'],
-      ['Boîtes', s.boxes === null ? '—' : `${fmt(s.boxes)} × ${p.tilesPerBox}`],
-      ['Surface achetée', m2(s.purchaseArea)],
-      ['Chutes perdues', `${m2(s.wasteArea)} (${fmt(wastePct, 0, 1)} %)`],
-      [`Coupes fines (< ${s.thinLimit} mm)`, fmt(s.thinCuts), s.thinCuts ? 'warn' : ''],
-    ];
+    const rows = statsRows();
     for (const row of rows) {
       const tr = document.createElement('tr');
       if (!row) {
@@ -709,8 +841,9 @@
       const tr = document.createElement('tr');
       tr.dataset.id = String(t.id);
       if (t.id === ui.highlightId) tr.className = 'active';
-      tr.append(cell(`C${t.id}`), cell(`${fmtMm(t.w)} × ${fmtMm(t.h)}`), cell(sourceLabel(t), t.source === 'offcut' ? 'src-offcut' : 'src-new'));
+      tr.append(cell(`C${t.id}`), cell(`${fmtMm(t.w)} × ${fmtMm(t.h)}${t.shape.complex ? ' + forme' : ''}`), cell(sourceLabel(t), t.source === 'offcut' ? 'src-offcut' : 'src-new'));
       cutBody.appendChild(tr);
+      if (t.shape.complex) cutBody.appendChild(shapeRow(t));
     }
 
     for (const s of result.plan) {
@@ -721,7 +854,7 @@
         const span = document.createElement('span');
         span.className = 'piece' + (p.id === ui.highlightId ? ' active' : '');
         span.dataset.id = String(p.id);
-        span.textContent = `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)})`;
+        span.textContent = `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)}${p.shape.complex ? ', forme' : ''})`;
         td.appendChild(span);
       });
       tr.append(cell(`n°${s.stock}`), td);
@@ -729,17 +862,117 @@
     }
   }
 
+  const r0 = v => (Math.abs(v) < 0.05 ? 0 : v);
+  const mm = v => `${fmtMm(r0(v))} mm`;
+  const near = (a, b) => Math.abs(a - b) < 0.05;
+  const letter = i => (i < 26 ? String.fromCharCode(65 + i) : String(i + 1));
+
+  // Repère de la pièce : vue de dessus telle que posée, origine au coin bas-gauche du rectangle w × h.
+  function pointText(p, w, h) {
+    const v = near(p.y, 0) ? 'bas' : near(p.y, h) ? 'haut' : null;
+    const s = near(p.x, 0) ? 'gauche' : near(p.x, w) ? 'droit' : null;
+    if (v && s) return `le coin ${v}-${s}`;
+    if (s) return `le bord ${s}, à ${mm(p.y)} du bas`;
+    if (v) return `le bord ${v}, à ${mm(p.x)} de la gauche`;
+    return `le point à ${mm(p.x)} de la gauche et ${mm(p.y)} du bas`;
+  }
+
+  function traitText(tr, w, h) {
+    const { a, b } = tr;
+    if (near(a.x, b.x)) {
+      const x = a.x, y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+      const pos = x <= w / 2 ? `à ${mm(x)} du bord gauche` : `à ${mm(w - x)} du bord droit`;
+      const ext = near(y1, h) ? 'en partant du bord haut' : near(y0, 0) ? 'en partant du bord bas' : `entre ${mm(y0)} et ${mm(y1)} au-dessus du bord bas`;
+      return `vertical, ${pos}, ${ext}`;
+    }
+    if (near(a.y, b.y)) {
+      const y = a.y, x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
+      const pos = y <= h / 2 ? `à ${mm(y)} du bord bas` : `à ${mm(h - y)} du bord haut`;
+      const ext = near(x1, w) ? 'en partant du bord droit' : near(x0, 0) ? 'en partant du bord gauche' : `entre ${mm(x0)} et ${mm(x1)} du bord gauche`;
+      return `horizontal, ${pos}, ${ext}`;
+    }
+    return `en biais, de ${pointText(a, w, h)} jusqu'à ${pointText(b, w, h)}`;
+  }
+
+  function shapeSteps(t) {
+    const s = t.shape;
+    const steps = [`Découper un rectangle de ${fmtMm(t.w)} × ${fmtMm(t.h)} mm.`];
+    s.traits.forEach((tr, i) => steps.push(`Trait ${letter(i)} (${mm(tr.len)}) : ${traitText(tr, t.w, t.h)}.`));
+    if (s.traits.length) steps.push('Retirer la partie hachurée.');
+    s.holes.forEach((h, i) => {
+      const b = Geo.bbox(h);
+      const rect = h.length === 4 && near(Geo.area(h), (b.maxX - b.minX) * (b.maxY - b.minY));
+      const name = `Découpe obstacle${s.holes.length > 1 ? ` ${i + 1}` : ''}`;
+      const kind = rect ? 'rectangle' : 'zone (forme exacte : voir croquis)';
+      steps.push(`${name} : ${kind} de ${fmtMm(b.maxX - b.minX)} × ${fmtMm(b.maxY - b.minY)} mm, à ${mm(b.minX)} du bord gauche et ${mm(b.minY)} du bord bas.`);
+    });
+    return steps;
+  }
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs, text) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function shapeSketch(t) {
+    const s = t.shape, pad = 20;
+    const sc = Math.min((280 - 2 * pad) / t.w, (150 - 2 * pad) / t.h);
+    const X = x => pad + x * sc, Y = y => pad + (t.h - y) * sc;
+    const pts = poly => poly.map(p => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
+    const vw = t.w * sc + 2 * pad, vh = t.h * sc + 2 * pad;
+    const svg = svgEl('svg', { class: 'sketch', width: vw.toFixed(0), height: vh.toFixed(0), viewBox: `0 0 ${vw.toFixed(1)} ${vh.toFixed(1)}` });
+    const hatch = `hatch-${t.id}`;
+    const pattern = svgEl('pattern', { id: hatch, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    pattern.appendChild(svgEl('line', { x1: 0, y1: 0, x2: 0, y2: 6, stroke: '#9ca3af', 'stroke-width': 2 }));
+    const defs = svgEl('defs');
+    defs.appendChild(pattern);
+    svg.appendChild(defs);
+    svg.appendChild(svgEl('rect', { x: X(0), y: Y(t.h), width: t.w * sc, height: t.h * sc, fill: `url(#${hatch})`, stroke: '#6b7280', 'stroke-dasharray': '4 3' }));
+    svg.appendChild(svgEl('polygon', { points: pts(s.outline), fill: tileColor(t) }));
+    for (const h of s.holes) svg.appendChild(svgEl('polygon', { points: pts(h), fill: `url(#${hatch})`, stroke: COLORS.cutLine, 'stroke-width': 2.5 }));
+    for (const tr of s.traits) {
+      svg.appendChild(svgEl('line', { x1: X(tr.a.x), y1: Y(tr.a.y), x2: X(tr.b.x), y2: Y(tr.b.y), stroke: COLORS.cutLine, 'stroke-width': 3, 'stroke-linecap': 'round' }));
+    }
+    s.traits.forEach((tr, i) => {
+      svg.appendChild(svgEl('text', { x: X((tr.a.x + tr.b.x) / 2), y: Y((tr.a.y + tr.b.y) / 2), class: 'lbl' }, letter(i)));
+    });
+    svg.appendChild(svgEl('text', { x: X(t.w / 2), y: Y(0) + 13, class: 'dim' }, fmtMm(t.w)));
+    svg.appendChild(svgEl('text', { x: X(0) - 6, y: Y(t.h / 2), class: 'dim', transform: `rotate(-90 ${X(0) - 6} ${Y(t.h / 2)})` }, fmtMm(t.h)));
+    return svg;
+  }
+
+  function shapeRow(t) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(t.id);
+    tr.className = 'detail' + (t.id === ui.highlightId ? ' active' : '');
+    const td = cell();
+    td.colSpan = 3;
+    const ol = document.createElement('ol');
+    for (const step of shapeSteps(t)) {
+      const li = document.createElement('li');
+      li.textContent = step;
+      ol.appendChild(li);
+    }
+    td.append(shapeSketch(t), ol);
+    tr.appendChild(td);
+    return tr;
+  }
+
   function sourceLabel(t) {
-    if (t.source !== 'offcut') return `Carreau neuf n°${t.stock}`;
+    if (t.source !== 'offcut') return T('newN')(t.stock);
     return `Chute de C${t.fromPiece} (n°${t.stock})${t.rotated ? ' ↻' : ''}`;
   }
 
   function tileInfo(t) {
-    if (t.full) return 'Carreau entier';
+    if (t.full) return T('full');
     const src = t.source === 'offcut'
-      ? `Taillée dans la chute de C${t.fromPiece} (carreau n°${t.stock})${t.rotated ? ', pivotée de 90°' : ''}`
-      : `Taillée dans le carreau neuf n°${t.stock}`;
-    return `Coupe C${t.id} : ${fmtMm(t.w)} × ${fmtMm(t.h)} mm\nSurface posée : ${fmt(t.area / 1e6, 3)} m²\n${src}`;
+      ? `Taillée dans la chute de C${t.fromPiece} (${T('stockN')(t.stock)})${t.rotated ? ', pivotée de 90°' : ''}`
+      : T('fromNew')(t.stock);
+    const shape = t.shape.complex ? `\n\nForme complexe (vue de dessus, telle que posée) :\n${shapeSteps(t).map((s, i) => `${i + 1}. ${s}`).join('\n')}` : '';
+    return `Coupe C${t.id} : ${fmtMm(t.w)} × ${fmtMm(t.h)} mm\nSurface posée : ${fmt(t.area / 1e6, 3)} m²\n${src}${shape}`;
   }
 
   function setHighlight(id, scroll) {
@@ -748,9 +981,11 @@
     document.querySelectorAll('#cutBody tr[data-id], #planBody [data-id]').forEach(el => {
       const on = +el.dataset.id === id;
       el.classList.toggle('active', on);
-      if (on && el.tagName === 'TR') row = el;
+      if (on && el.tagName === 'TR' && !row) row = el;
     });
-    if (scroll && row) row.scrollIntoView({ block: 'nearest' });
+    // En affichage empilé (tablette), le panneau ne défile pas : ne pas faire sauter la page loin du plan.
+    const panel = row && row.closest('.panel');
+    if (scroll && row && panel.scrollHeight > panel.clientHeight) row.scrollIntoView({ block: 'nearest' });
     render();
   }
 
@@ -763,7 +998,299 @@
     setHighlight(id, true);
   }
 
-  // ---------- Souris ----------
+  // ---------- Export PDF ----------
+  function download(blob, ext) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(project.name || '').replace(/[^\p{L}\p{N} _-]+/gu, '_').trim() || 'calepinage'}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function optionText(bind, value) {
+    const sel = document.querySelector(`select[data-bind="${bind}"]`);
+    const o = sel && Array.from(sel.options).find(x => x.value === value);
+    return o ? o.textContent : String(value);
+  }
+
+  const PDF_M = 36;
+  const startName = () => T('secStart').replace(/^\d+\.\s*/, '');
+
+  // Plan sur une page ; pivoté d'un quart de tour si la pièce occupe ainsi mieux la page portrait.
+  function pdfPlanPage(doc, title) {
+    const { w: PW, h: PH } = Pdf.A4, M = PDF_M;
+    const f = result.frame;
+    const b = Geo.bbox([...project.room, ...project.obstacles.flatMap(o => o.points)]);
+    const rw = Math.max(b.maxX - b.minX, 1), rh = Math.max(b.maxY - b.minY, 1);
+    const top = PH - M - 40, bottom = M + 26, pad = 24;
+    const box = { x: M + pad, y: bottom + pad, w: PW - 2 * M - 2 * pad, h: top - bottom - 2 * pad };
+    const s0 = Math.min(box.w / rw, box.h / rh), s90 = Math.min(box.w / rh, box.h / rw);
+    const rot = s90 > s0 * 1.001;
+    const s = rot ? s90 : s0, angle = rot ? 90 : 0;
+    const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+    const bx = box.x + box.w / 2, by = box.y + box.h / 2;
+    const P = rot
+      ? p => ({ x: bx - (p.y - cy) * s, y: by + (p.x - cx) * s })
+      : p => ({ x: bx + (p.x - cx) * s, y: by + (p.y - cy) * s });
+    const poly = pts => pts.map(P);
+    const up = rot ? { x: -1, y: 0 } : { x: 0, y: 1 };
+    const label = (str, c, dy, opts) => {
+      const k = dy - opts.size * 0.35;
+      doc.text(str, c.x + up.x * k, c.y + up.y * k, { ...opts, align: 'center', angle });
+    };
+
+    doc.text(title, M, PH - M - 10, { size: 14, font: 'F2' });
+    const sub = [`${T('dims')} : ${fmtMm(f.L)} × ${fmtMm(f.W)} mm`, `Pose : ${optionText('pattern', project.pattern)}`, new Date().toLocaleDateString('fr-FR')];
+    if (rot) sub.push('plan pivoté d\'un quart de tour');
+    doc.text(sub.join('   ·   '), M, PH - M - 26, { size: 9, color: '#4b5563' });
+
+    doc.path(poly(project.room), { fill: COLORS.joint });
+    for (const t of result.tiles) doc.path(poly(t.piece), { fill: tileColor(t), stroke: '#8a8176', width: 0.25 });
+    for (const ob of result.obstacles) doc.path(poly(ob), { fill: COLORS.joint });
+    for (const o of project.obstacles) doc.path(poly(o.points), { fill: COLORS.obstacle, stroke: '#4b5563', width: 0.6 });
+    const edges = result.cuts.flatMap(t => t.shape.edges);
+    for (const [a, c] of edges) doc.line(P(a), P(c), { stroke: '#ffffff', width: 2.4 });
+    for (const [a, c] of edges) doc.line(P(a), P(c), { stroke: COLORS.cutLine, width: 1.2 });
+    doc.path(poly(project.room), { stroke: COLORS.room, width: 1 });
+
+    doc.path(poly([f.toWorld(0, 0), f.toWorld(f.L, 0), f.toWorld(f.L, f.W), f.toWorld(0, f.W)]), { stroke: COLORS.start, width: 1, dash: [4, 3] });
+    const sp = P(project.start);
+    doc.path(Array.from({ length: 16 }, (_, i) => ({ x: sp.x + 2.5 * Math.cos((i * Math.PI) / 8), y: sp.y + 2.5 * Math.sin((i * Math.PI) / 8) })), { fill: COLORS.start });
+
+    const size = 6;
+    for (const t of result.cuts) {
+      const pb = Geo.bbox(t.piece);
+      const along = (pb.maxX - pb.minX) * s, across = (pb.maxY - pb.minY) * s;
+      const id = `C${t.id}`, dims = `${fmtMm(t.w)}×${fmtMm(t.h)}`;
+      const c = P(Geo.centroid(t.piece));
+      if (across >= 2.6 * size + 4 && along >= doc.width(dims, size) + 4) {
+        label(id, c, size * 0.65, { size, font: 'F2', color: '#1f2937' });
+        label(dims, c, -size * 0.65, { size, color: '#1f2937' });
+      } else if (across >= size + 3 && along >= doc.width(id, size, 'F2') + 3) {
+        label(id, c, 0, { size, font: 'F2', color: '#1f2937' });
+      }
+    }
+    for (const o of project.obstacles) label(o.name, P(Geo.centroid(o.points)), 0, { size: 8, font: 'F2', color: '#ffffff' });
+
+    const room = project.room, n = room.length;
+    const sign = Geo.signedArea(room) >= 0 ? 1 : -1;
+    room.forEach((a, i) => {
+      const c = room[(i + 1) % n];
+      const len = Math.hypot(c.x - a.x, c.y - a.y);
+      if (len * s < 28) return;
+      const off = 9 / s;
+      const nx = ((c.y - a.y) / len) * sign, ny = (-(c.x - a.x) / len) * sign;
+      label(fmtMm(len), P({ x: (a.x + c.x) / 2 + nx * off, y: (a.y + c.y) / 2 + ny * off }), 0, { size: 7, color: '#374151' });
+    });
+
+    const items = [
+      [COLORS.full, T('legendFull')], [COLORS.cutNew, T('legendNew')], [COLORS.cutReuse, 'Coupe (dans une chute)'],
+      [COLORS.obstacle, 'Obstacle'], ['cut', 'Bord à couper'], ['start', startName()],
+    ];
+    let x = M;
+    const ly = M + 6;
+    for (const [col, txt] of items) {
+      if (col === 'cut') doc.line({ x, y: ly + 4.5 }, { x: x + 10, y: ly + 4.5 }, { stroke: COLORS.cutLine, width: 1.5 });
+      else if (col === 'start') doc.rect(x, ly, 10, 9, { stroke: COLORS.start, width: 1, dash: [2, 1.5] });
+      else doc.rect(x, ly, 10, 9, { fill: col, stroke: '#9ca3af', width: 0.5 });
+      doc.text(txt, x + 13, ly + 1.8, { size: 8, color: '#374151' });
+      x += 13 + doc.width(txt, 8) + 14;
+    }
+  }
+
+  // Croquis vectoriel d'une forme complexe, dans le cadre (x, y) - (x + w, y + h).
+  function pdfSketch(doc, t, x, y, w, h) {
+    const s = t.shape, pad = 12;
+    const sc = Math.min((w - 2 * pad) / t.w, (h - 2 * pad) / t.h);
+    const ox = x + pad, oy = y + pad;
+    const P = p => ({ x: ox + p.x * sc, y: oy + p.y * sc });
+    doc.rect(ox, oy, t.w * sc, t.h * sc, { fill: '#e5e7eb', stroke: '#6b7280', width: 0.6, dash: [3, 2] });
+    doc.path(s.outline.map(P), { fill: tileColor(t) });
+    for (const hole of s.holes) doc.path(hole.map(P), { fill: '#e5e7eb', stroke: COLORS.cutLine, width: 1.2 });
+    for (const tr of s.traits) doc.line(P(tr.a), P(tr.b), { stroke: COLORS.cutLine, width: 1.6 });
+    s.traits.forEach((tr, i) => {
+      const m = P({ x: (tr.a.x + tr.b.x) / 2, y: (tr.a.y + tr.b.y) / 2 });
+      doc.text(letter(i), m.x + 2, m.y + 2, { size: 8, font: 'F2', color: '#b91c1c' });
+    });
+    doc.text(fmtMm(t.w), ox + (t.w * sc) / 2, oy - 8, { size: 6.5, align: 'center', color: '#374151' });
+    doc.text(fmtMm(t.h), ox - 3, oy + (t.h * sc) / 2, { size: 6.5, align: 'center', angle: 90, color: '#374151' });
+  }
+
+  const CODE_COLORS = { key: '#0550ae', str: '#116329', num: '#953800', lit: '#8250df', punct: '#57606a', plain: '#24292f' };
+  function tokenizeJson(line) {
+    const out = [];
+    const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(true|false|null)|([{}[\],:])|(\s+)|(\S)/g;
+    let m;
+    while ((m = re.exec(line))) {
+      if (m[1]) {
+        out.push([m[1], m[2] ? CODE_COLORS.key : CODE_COLORS.str]);
+        if (m[2]) out.push([m[2], CODE_COLORS.punct]);
+      } else if (m[3]) out.push([m[3], CODE_COLORS.num]);
+      else if (m[4]) out.push([m[4], CODE_COLORS.lit]);
+      else if (m[5]) out.push([m[5], CODE_COLORS.punct]);
+      else if (m[6]) out.push([m[6], null]);
+      else out.push([m[7], CODE_COLORS.plain]);
+    }
+    return out;
+  }
+
+  function pdfReport(doc) {
+    const { w: PW, h: PH } = Pdf.A4, M = PDF_M, CW = PW - 2 * M;
+    const parquet = project.material === 'parquet';
+    let y = 0;
+    const newPage = () => { doc.addPage(); y = PH - M; };
+    const need = h => { if (y - h < M + 16) newPage(); };
+    const heading = str => {
+      need(48);
+      y -= 8;
+      doc.text(str, M, y - 13, { size: 13, font: 'F2' });
+      y -= 19;
+      doc.line({ x: M, y }, { x: PW - M, y }, { stroke: '#d1d5db', width: 0.6 });
+      y -= 8;
+    };
+    const kv = (k, v, { font = 'F1', indent = 0, color = '#1f2937' } = {}) => {
+      need(13.5);
+      doc.text(k, M + indent, y - 9.5, { size: 9.5, font, color });
+      doc.text(v, PW - M, y - 9.5, { size: 9.5, font, color, align: 'right' });
+      y -= 13.5;
+    };
+    const para = (str, { size = 9, color = '#1f2937' } = {}) => {
+      const lh = size * 1.35;
+      for (const line of doc.wrap(str, size, 'F1', CW)) {
+        need(lh);
+        doc.text(line, M, y - size, { size, color });
+        y -= lh;
+      }
+    };
+    const strip = str => str.replace(/\s*\((mm|%|0 = ignorer)\)$/, '');
+
+    newPage();
+    heading('Paramètres');
+    const st = project.start, o = project.optim;
+    kv('Revêtement', parquet ? 'Parquet' : 'Carrelage');
+    kv(T('dims'), `${fmtMm(project.tile.length)} × ${fmtMm(project.tile.width)} mm`);
+    kv('Pose', optionText('pattern', project.pattern));
+    if (!parquet) kv('Joint entre carreaux', `${fmtMm(project.joint.inner)} mm`);
+    kv(strip(T('perimeter')), `${fmtMm(project.joint.perimeter)} mm`);
+    kv(startName(), `X ${fmtMm(st.x)} ; Y ${fmtMm(st.y)} mm, ${optionText('start.anchor', st.anchor).toLowerCase()}, ${fmt(st.angle, 0, 2)}°`);
+    kv('Réutilisation des chutes', o.reuse ? 'Oui' : 'Non');
+    kv('Épaisseur de coupe', `${fmtMm(o.kerf)} mm`);
+    kv('Chute minimale réutilisable', `${fmtMm(o.minOffcut)} mm`);
+    if (!parquet) kv('Rotation des chutes à 90°', o.allowRotate ? 'Autorisée' : 'Non');
+    kv(strip(T('margin')), `${fmt(project.purchase.margin, 0, 1)} %`);
+    kv(strip(T('perBox')), project.purchase.tilesPerBox ? String(project.purchase.tilesPerBox) : '—');
+
+    heading('Résultats');
+    for (const row of statsRows()) {
+      if (!row) { y -= 5; continue; }
+      const [k, v, cls] = row;
+      kv(k, v, {
+        font: cls === 'strong' ? 'F2' : 'F1',
+        indent: cls === 'sub' ? 12 : 0,
+        color: cls === 'warn' ? '#b91c1c' : cls === 'sub' ? '#4b5563' : '#1f2937',
+      });
+    }
+
+    heading('Liste des coupes');
+    para(`Cotes du rectangle à découper, dans le sens ${T('along')} (longueur × largeur). Formes complexes : pièce vue de dessus telle que posée, partie à retirer en gris, traits de coupe en rouge.`, { size: 8.5, color: '#4b5563' });
+    y -= 4;
+    const cols = [M, M + 40, M + 190];
+    need(14);
+    ['N°', 'Dimensions (mm)', 'Taillée dans'].forEach((h, i) => doc.text(h, cols[i], y - 9.5, { size: 9, font: 'F2', color: '#4b5563' }));
+    y -= 14;
+    const sk = { w: 140, h: 80 }, stepX = cols[1] + sk.w + 12, stepW = PW - M - stepX;
+    for (const t of result.cuts) {
+      const steps = t.shape.complex ? shapeSteps(t).flatMap((s, i) => doc.wrap(`${i + 1}. ${s}`, 8.5, 'F1', stepW)) : [];
+      const skH = t.h * Math.min((sk.w - 24) / t.w, (sk.h - 24) / t.h) + 24;
+      const detailH = t.shape.complex ? Math.max(skH, steps.length * 11.5) + 6 : 0;
+      need(13.5 + detailH);
+      doc.text(`C${t.id}`, cols[0], y - 9.5, { size: 9.5, font: 'F2' });
+      doc.text(`${fmtMm(t.w)} × ${fmtMm(t.h)}${t.shape.complex ? ' + forme' : ''}`, cols[1], y - 9.5, { size: 9.5 });
+      doc.text(sourceLabel(t), cols[2], y - 9.5, { size: 9.5, color: t.source === 'offcut' ? '#047857' : '#b45309' });
+      y -= 13.5;
+      if (t.shape.complex) {
+        pdfSketch(doc, t, cols[1], y - skH, sk.w, skH);
+        steps.forEach((l, i) => doc.text(l, stepX, y - 9 - i * 11.5, { size: 8.5, color: '#374151' }));
+        y -= detailH;
+      }
+      doc.line({ x: M, y: y + 2 }, { x: PW - M, y: y + 2 }, { stroke: '#e5e7eb', width: 0.5 });
+    }
+
+    heading(T('planTitle'));
+    for (const s of result.plan) {
+      const txt = s.pieces.map(p => `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)}${p.shape.complex ? ', forme' : ''})`).join(' → ');
+      const lines = doc.wrap(txt, 9, 'F1', CW - 40);
+      need(lines.length * 12.5);
+      doc.text(`n°${s.stock}`, M, y - 9, { size: 9, font: 'F2' });
+      lines.forEach((l, i) => doc.text(l, M + 40, y - 9 - i * 12.5, { size: 9 }));
+      y -= lines.length * 12.5 + 2;
+    }
+
+    newPage();
+    heading('Fichier du projet (JSON)');
+    para('Contenu du fichier produit par « Enregistrer en JSON ». Recopié dans un fichier .json, il se rouvre avec « Ouvrir un JSON… ».', { size: 8.5, color: '#4b5563' });
+    y -= 6;
+    const size = 7.5, lh = 9.6, cw = size * 0.6, gutter = 26;
+    const maxChars = Math.floor((CW - gutter - 12) / cw);
+    const vis = [];
+    JSON.stringify(project, null, 2).split('\n').forEach((line, i) => {
+      let cur = [], len = 0, no = i + 1;
+      for (const [text, color] of tokenizeJson(line)) {
+        let rest = text;
+        while (len + rest.length > maxChars) {
+          const take = maxChars - len;
+          cur.push([rest.slice(0, take), color]);
+          vis.push({ no, tokens: cur });
+          no = null; cur = []; len = 0; rest = rest.slice(take);
+        }
+        if (rest) { cur.push([rest, color]); len += rest.length; }
+      }
+      vis.push({ no, tokens: cur });
+    });
+    for (let i = 0; i < vis.length;) {
+      need(lh * 2 + 8);
+      const fit = Math.max(1, Math.floor((y - (M + 16) - 8) / lh));
+      const chunk = vis.slice(i, i + fit);
+      const h = chunk.length * lh + 8;
+      doc.rect(M, y - h, CW, h, { fill: '#f6f8fa', stroke: '#d0d7de', width: 0.6 });
+      doc.line({ x: M + gutter, y: y - h }, { x: M + gutter, y }, { stroke: '#d0d7de', width: 0.5 });
+      chunk.forEach((v, k) => {
+        const base = y - 4 - (k + 1) * lh + 2.2;
+        if (v.no) doc.text(String(v.no), M + gutter - 4, base, { size, font: 'F3', color: '#8c959f', align: 'right' });
+        let x = M + gutter + 6;
+        for (const [text, color] of v.tokens) {
+          if (color) doc.text(text, x, base, { size, font: 'F3', color });
+          x += text.length * cw;
+        }
+      });
+      y -= h;
+      i += chunk.length;
+    }
+  }
+
+  function exportPdf() {
+    if (!result || result.error) {
+      alert(`Export impossible : ${result ? result.error : 'calcul en cours.'}`);
+      return;
+    }
+    const title = `${T('title')}${project.name ? ` — ${project.name}` : ''}`;
+    const doc = new Pdf.Doc(title);
+    pdfPlanPage(doc, title);
+    pdfReport(doc);
+    doc.forEachPage((i, n) => {
+      doc.text(title, PDF_M, PDF_M - 18, { size: 7.5, color: '#9ca3af' });
+      doc.text(`Page ${i + 1} / ${n}`, Pdf.A4.w - PDF_M, PDF_M - 18, { size: 7.5, color: '#9ca3af', align: 'right' });
+    });
+    download(doc.toBlob(), 'pdf');
+  }
+
+  // ---------- Souris et tactile ----------
+  const pointers = new Map();
+  const hitRadius = () => (ui.touch ? 20 : 9);
+  const clampScale = s => Math.min(20, Math.max(0.002, s));
+
   function mousePos(e) {
     const r = canvas.getBoundingClientRect();
     return { sx: e.clientX - r.left, sy: e.clientY - r.top };
@@ -772,14 +1299,14 @@
   function hitVertex(points, sx, sy) {
     for (let i = points.length - 1; i >= 0; i--) {
       const s = toScreen(points[i]);
-      if (Math.hypot(s.x - sx, s.y - sy) <= 8) return i;
+      if (Math.hypot(s.x - sx, s.y - sy) <= hitRadius() - 1) return i;
     }
     return -1;
   }
 
   function hitStart(sx, sy) {
     const s = toScreen(project.start);
-    return Math.hypot(s.x - sx, s.y - sy) <= 9;
+    return Math.hypot(s.x - sx, s.y - sy) <= hitRadius();
   }
 
   function updateHover(sx, sy) {
@@ -795,7 +1322,7 @@
     tooltip.hidden = !info;
     if (info) {
       tooltip.textContent = info;
-      tooltip.style.left = `${Math.min(sx + 14, view.w - 240)}px`;
+      tooltip.style.left = `${Math.max(0, Math.min(sx + 14, view.w - 360))}px`;
       tooltip.style.top = `${sy + 14}px`;
     }
     const onHandle = hitStart(sx, sy) || project.obstacles.concat([{ points: project.room }]).some(o => hitVertex(o.points, sx, sy) >= 0);
@@ -803,8 +1330,23 @@
   }
 
   function bindCanvas() {
-    canvas.addEventListener('mousedown', e => {
+    const pinch = () => {
+      const [a, b] = [...pointers.values()];
+      return { dist: Math.hypot(a.sx - b.sx, a.sy - b.sy) || 1, mx: (a.sx + b.sx) / 2, my: (a.sy + b.sy) / 2 };
+    };
+
+    canvas.addEventListener('pointerdown', e => {
       const { sx, sy } = mousePos(e);
+      ui.touch = e.pointerType !== 'mouse';
+      canvas.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { sx, sy });
+      if (pointers.size === 2) {
+        const p = pinch();
+        ui.drag = { type: 'pinch', ...p, scale: view.scale, w: toWorld(p.mx, p.my) };
+        tooltip.hidden = true;
+        return;
+      }
+      if (pointers.size > 2) return;
       if (e.button === 1) {
         e.preventDefault();
         ui.drag = { type: 'pan', sx, sy, ox: view.ox, oy: view.oy };
@@ -813,8 +1355,9 @@
       if (e.button !== 0) return;
       const w = toWorld(sx, sy);
       if (ui.placing) {
-        project.start.x = snapV(w.x, e);
-        project.start.y = snapV(w.y, e);
+        const p = snapStart(w, e);
+        project.start.x = p.x;
+        project.start.y = p.y;
         setPlacing(false);
         changed();
         return;
@@ -833,20 +1376,29 @@
       canvas.style.cursor = 'grabbing';
     });
 
-    window.addEventListener('mousemove', e => {
+    canvas.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+
+    window.addEventListener('pointermove', e => {
       const { sx, sy } = mousePos(e);
+      if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { sx, sy });
       const d = ui.drag;
       if (d) {
         tooltip.hidden = true;
-        if (d.type === 'pan') {
+        if (d.type === 'pinch') {
+          if (pointers.size < 2) return;
+          const p = pinch();
+          view.scale = clampScale(d.scale * p.dist / d.dist);
+          view.ox = p.mx - d.w.x * view.scale;
+          view.oy = p.my + d.w.y * view.scale;
+          render();
+        } else if (d.type === 'pan') {
           view.ox = d.ox + sx - d.sx;
           view.oy = d.oy + sy - d.sy;
           render();
         } else {
           const w = toWorld(sx, sy);
-          const p = { x: snapV(w.x, e), y: snapV(w.y, e) };
-          if (d.type === 'vertex') shapePoints(selected)[d.i] = p;
-          else { project.start.x = p.x; project.start.y = p.y; }
+          if (d.type === 'vertex') shapePoints(selected)[d.i] = { x: snapV(w.x, e), y: snapV(w.y, e) };
+          else { const p = snapStart(w, e); project.start.x = p.x; project.start.y = p.y; }
           changed();
         }
         return;
@@ -855,17 +1407,30 @@
       else if (!tooltip.hidden) tooltip.hidden = true;
     });
 
-    window.addEventListener('mouseup', e => {
+    const endPointer = e => {
+      pointers.delete(e.pointerId);
       const d = ui.drag;
+      // Après un pincement, on attend que tous les doigts soient levés.
+      if (d && d.type === 'pinch') {
+        if (!pointers.size) ui.drag = null;
+        return;
+      }
+      if (pointers.size) return;
       if (d && d.type === 'pan') canvas.style.cursor = 'default';
       ui.drag = null;
-      if (d && d.click) {
+      if (d && d.click && e.type === 'pointerup') {
         const { sx, sy } = mousePos(e);
-        if (Math.hypot(sx - d.sx, sy - d.sy) < 4) selectTileAt(sx, sy);
+        if (Math.hypot(sx - d.sx, sy - d.sy) < (ui.touch ? 10 : 4)) {
+          selectTileAt(sx, sy);
+          if (ui.touch) updateHover(sx, sy);
+        }
       }
-    });
+    };
+    window.addEventListener('pointerup', endPointer);
+    window.addEventListener('pointercancel', endPointer);
 
-    canvas.addEventListener('mouseleave', () => {
+    canvas.addEventListener('pointerleave', e => {
+      if (e.pointerType !== 'mouse') return;
       tooltip.hidden = true;
       if (ui.hoverTile) { ui.hoverTile = null; render(); }
     });
@@ -876,7 +1441,7 @@
       const m = { x: sx, y: sy };
       for (let i = 0; i < pts.length; i++) {
         const c = Geo.closestOnSegment(m, toScreen(pts[i]), toScreen(pts[(i + 1) % pts.length]));
-        if (c.d <= 8) {
+        if (c.d <= hitRadius() - 1) {
           const w = toWorld(c.x, c.y);
           pts.splice(i + 1, 0, { x: snapV(w.x, e), y: snapV(w.y, e) });
           afterTopologyChange();
@@ -896,7 +1461,7 @@
       e.preventDefault();
       const { sx, sy } = mousePos(e);
       const w = toWorld(sx, sy);
-      view.scale = Math.min(20, Math.max(0.002, view.scale * Math.exp(-e.deltaY * 0.0015)));
+      view.scale = clampScale(view.scale * Math.exp(-e.deltaY * 0.0015));
       view.ox = sx - w.x * view.scale;
       view.oy = sy + w.y * view.scale;
       render();
@@ -908,9 +1473,17 @@
     $('btnUndo').addEventListener('click', () => stepHistory(-1));
     $('btnRedo').addEventListener('click', () => stepHistory(1));
 
+    $('materialTabs').addEventListener('click', e => {
+      const b = e.target.closest('button[data-material]');
+      if (!b || b.dataset.material === project.material) return;
+      project.material = b.dataset.material;
+      applyMaterial();
+      changed();
+    });
+
     $('btnNew').addEventListener('click', () => {
       if (!confirm('Créer un nouveau projet ? Les modifications non enregistrées en JSON seront perdues.')) return;
-      project = Project.defaults();
+      project = Project.defaults(project.material);
       selected = 0;
       ui.highlightId = null;
       refreshAll();
@@ -934,15 +1507,10 @@
     });
 
     $('btnSave').addEventListener('click', () => {
-      const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${(project.name || '').replace(/[^\p{L}\p{N} _-]+/gu, '_').trim() || 'calepinage'}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      download(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), 'json');
     });
+
+    $('btnPdf').addEventListener('click', exportPdf);
 
     $('shapeSelect').addEventListener('change', e => selectShape(+e.target.value));
 
@@ -982,9 +1550,9 @@
       fitView();
     });
 
-    document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button[data-mode]').forEach(b => b.addEventListener('click', () => {
       tableMode = b.dataset.mode;
-      document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+      document.querySelectorAll('.tabs button[data-mode]').forEach(x => x.classList.toggle('active', x === b));
       buildVertexTable();
     }));
 

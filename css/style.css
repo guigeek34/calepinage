@@ -63,6 +63,8 @@ label.field:has(select[data-bind="pattern"]) { grid-template-columns: 70px 1fr; 
 .btns select { flex: 1 0 90px; }
 
 .tabs { display: flex; }
+.material { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-weight: 600; }
+.material .tabs { flex: 1; }
 .tabs button { flex: 1; border-radius: 0; }
 .tabs button:first-child { border-radius: 4px 0 0 4px; }
 .tabs button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
@@ -82,6 +84,13 @@ table.grid td.angle input { margin-top: 2px; }
 table.cuts tbody tr { cursor: pointer; }
 table.cuts tbody tr:hover { background: #f1f5ff; }
 table.cuts tbody tr.active { background: #dbeafe; }
+table.cuts tr.detail td { padding: 2px 4px 8px 14px; font-size: 12px; color: #374151; }
+table.cuts tr:has(+ tr.detail) td { border-bottom: none; }
+table.cuts .sketch { display: block; max-width: 100%; height: auto; margin: 2px 0 4px; }
+table.cuts .sketch .lbl { font: bold 12px system-ui, sans-serif; fill: #b91c1c; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+table.cuts .sketch .dim { font: 10px system-ui, sans-serif; fill: #374151; text-anchor: middle; dominant-baseline: middle; }
+table.cuts tr.detail ol { margin: 0; padding-left: 18px; }
+table.cuts tr.detail li { margin: 1px 0; }
 table.plan td:first-child { white-space: nowrap; font-weight: 600; vertical-align: top; }
 table.plan .piece { cursor: pointer; border-radius: 3px; padding: 0 2px; }
 table.plan .piece:hover { background: #f1f5ff; }
@@ -110,9 +119,10 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .sw.cut-new { background: #f4a259; }
 .sw.cut-reuse { background: #7cc6a4; }
 .sw.obstacle { background: #8b929c; }
+.sw.cut-line { height: 0; border: none; border-top: 2px solid #e02424; }
 
 #canvasWrap { position: relative; flex: 1; min-height: 0; }
-#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 #tooltip {
   position: absolute;
   pointer-events: none;
@@ -122,10 +132,37 @@ main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   border-radius: 4px;
   font-size: 12px;
   white-space: pre-line;
+  max-width: 340px;
   z-index: 2;
 }
 
 @media (max-width: 1100px) {
-  .layout { grid-template-columns: 300px 1fr; }
-  .panel.results { grid-column: 1 / -1; border-left: none; border-top: 1px solid #d9dde3; max-height: 40vh; }
+  /* Tablette : saisie, puis plan, puis résultats, la page défile. */
+  body { display: block; height: auto; min-height: 100vh; }
+  header { flex-wrap: wrap; row-gap: 6px; }
+  header input { flex: 1 1 200px; }
+  .actions { flex-wrap: wrap; }
+  .layout { display: flex; flex-direction: column; }
+  .panel { overflow: visible; border-right: none; border-bottom: 1px solid #d9dde3; }
+  .panel.results { border-left: none; }
+  main { height: 75vh; min-height: 380px; border-bottom: 1px solid #d9dde3; }
+}
+
+@media (min-width: 700px) and (max-width: 1100px) {
+  .panel:not(.results) { column-count: 2; column-gap: 10px; }
+  .panel:not(.results) > * { break-inside: avoid; }
+  .panel:not(.results) > .material { column-span: all; }
+}
+
+@media (max-width: 699px) {
+  .actions { margin-left: 0; }
+  .legend { margin-left: 0; flex-wrap: wrap; }
+}
+
+@media (pointer: coarse) {
+  button { padding: 8px 12px; }
+  input, select { font-size: 16px; padding: 6px 7px; }
+  summary { padding: 12px 10px; }
+  .field { grid-template-columns: 1fr 140px; }
+  table.cuts td, table.plan td { padding-top: 6px; padding-bottom: 6px; }
 }
