@@ -26,7 +26,7 @@ const Project = (() => {
       pattern: 'third',
       joint: { inner: 3, perimeter: 5 },
       start: { x: 5, y: 5, anchor: 'bl', angle: 0 },
-      optim: { reuse: true, kerf: 2, minOffcut: 20, allowRotate: false },
+      optim: { reuse: true, kerf: 2, minOffcut: 20, allowRotate: false, noInnerCuts: false },
       purchase: { margin: 10, tilesPerBox: 0 },
     };
   }
@@ -75,6 +75,7 @@ const Project = (() => {
         kerf: num(o.kerf, d.optim.kerf, 0, 20),
         minOffcut: num(o.minOffcut, d.optim.minOffcut, 0, 1000),
         allowRotate: o.allowRotate === true,
+        noInnerCuts: o.noInnerCuts === true,
       },
       purchase: {
         margin: num(p.margin, d.purchase.margin, 0, 100),

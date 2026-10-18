@@ -126,6 +126,8 @@
         <label class="field"><span>Chute minimale réutilisable (mm)</span><input type="number" data-bind="optim.minOffcut" min="0" max="1000" step="1"></label>
         <label class="check" data-only="tile"><input type="checkbox" data-bind="optim.allowRotate"> Autoriser la rotation à 90° des chutes</label>
         <p class="hint" data-t="rotateHint">Rotation déconseillée pour les carreaux à motif ou veinage orienté.</p>
+        <label class="check"><input type="checkbox" data-bind="optim.noInnerCuts"> Interdire les bords coupés au milieu</label>
+        <p class="hint" data-t="innerCutsHint">Les bords coupés sont toujours placés contre un mur ou un obstacle, jamais contre un autre carreau.</p>
       </div>
     </details>
 

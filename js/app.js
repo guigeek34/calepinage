@@ -42,6 +42,7 @@
       orientTitle: 'Oriente les carreaux parallèlement au mur partant de ce sommet',
       startHint: 'Le carreau de départ est encadré en rouge ; la flèche indique le sens de la longueur. Le point rouge se déplace à la souris.',
       rotateHint: 'Rotation déconseillée pour les carreaux à motif ou veinage orienté.',
+      innerCutsHint: 'Les bords coupés sont toujours placés contre un mur ou un obstacle, jamais contre un autre carreau.',
       margin: 'Marge casse / sécurité (%)',
       perBox: 'Carreaux par boîte (0 = ignorer)',
       legendFull: 'Entier',
@@ -77,6 +78,7 @@
       orientTitle: 'Oriente les lames parallèlement au mur partant de ce sommet',
       startHint: 'La lame de départ est encadrée en rouge ; la flèche indique le sens de la longueur. Le point rouge se déplace à la souris.',
       rotateHint: 'Les chutes ne sont jamais tournées de 90° (sens du fil et emboîtement des lames).',
+      innerCutsHint: 'Les bords coupés sont toujours placés contre un mur ou un obstacle, jamais contre une autre lame.',
       margin: 'Marge de sécurité (%)',
       perBox: 'Lames par paquet (0 = ignorer)',
       legendFull: 'Entière',
@@ -963,13 +965,13 @@
 
   function sourceLabel(t) {
     if (t.source !== 'offcut') return T('newN')(t.stock);
-    return `Chute de C${t.fromPiece} (n°${t.stock})${t.rotated ? ' ↻' : ''}`;
+    return `Chute de C${t.fromPiece} (n°${t.stock})${t.rotation === 180 ? ' ↻ 180°' : t.rotation ? ' ↻' : ''}`;
   }
 
   function tileInfo(t) {
     if (t.full) return T('full');
     const src = t.source === 'offcut'
-      ? `Taillée dans la chute de C${t.fromPiece} (${T('stockN')(t.stock)})${t.rotated ? ', pivotée de 90°' : ''}`
+      ? `Taillée dans la chute de C${t.fromPiece} (${T('stockN')(t.stock)})${t.rotation ? `, pivotée de ${t.rotation === 180 ? 180 : 90}°` : ''}`
       : T('fromNew')(t.stock);
     const shape = t.shape.complex ? `\n\nForme complexe (vue de dessus, telle que posée) :\n${shapeSteps(t).map((s, i) => `${i + 1}. ${s}`).join('\n')}` : '';
     return `Coupe C${t.id} : ${fmtMm(t.w)} × ${fmtMm(t.h)} mm\nSurface posée : ${fmt(t.area / 1e6, 3)} m²\n${src}${shape}`;
@@ -1179,6 +1181,7 @@
     kv('Épaisseur de coupe', `${fmtMm(o.kerf)} mm`);
     kv('Chute minimale réutilisable', `${fmtMm(o.minOffcut)} mm`);
     if (!parquet) kv('Rotation des chutes à 90°', o.allowRotate ? 'Autorisée' : 'Non');
+    kv('Bords coupés au milieu', o.noInnerCuts ? 'Interdits' : 'Autorisés');
     kv(strip(T('margin')), `${fmt(project.purchase.margin, 0, 1)} %`);
     kv(strip(T('perBox')), project.purchase.tilesPerBox ? String(project.purchase.tilesPerBox) : '—');
 

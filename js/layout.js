@@ -120,7 +120,9 @@ const Layout = (() => {
           const h = Math.min(W, bv1 - v0) - Math.max(0, bv0 - v0);
           const full = !holed && area > tileArea * (1 - 1e-6);
           const shape = full ? null : cutShape(f, piece, holes, u0, v0, L, W, Math.max(0, bu0 - u0), Math.max(0, bv0 - v0), w, h);
-          tiles.push({ row: r, col: c, rect, piece, area, full, w, h, shape, source: full ? 'full' : null });
+          // Côtés restés sur le bord du carreau : ils touchent les carreaux voisins et doivent rester des bords d'usine.
+          const sides = { l: bu0 - u0 <= TOL, r: bu1 - u0 >= L - TOL, b: bv0 - v0 <= TOL, t: bv1 - v0 >= W - TOL };
+          tiles.push({ row: r, col: c, rect, piece, area, full, w, h, shape, sides, source: full ? 'full' : null });
         }
       }
     }

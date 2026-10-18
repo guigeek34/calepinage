@@ -149,6 +149,7 @@ Raccourcis :
 | Épaisseur de coupe | Largeur de matière perdue par le trait de coupe (disque) |
 | Chute minimale réutilisable | En dessous de cette dimension, la chute est jetée |
 | Autoriser la rotation à 90° | Une chute peut être tournée pour servir ailleurs. À éviter pour les carreaux à motif ou à veinage orienté |
+| Interdire les bords coupés au milieu | Les bords coupés sont toujours placés contre un mur ou un obstacle, jamais contre un autre carreau : une chute ne sert que si ses bords d'usine tombent là où le morceau touche ses voisins. Moins de chutes sont réutilisées |
 
 ### Principe
 
@@ -156,8 +157,11 @@ Raccourcis :
 2. Les morceaux sont traités du plus grand au plus petit.
 3. Pour chaque morceau, l'application cherche la chute disponible qui lui convient le mieux, c'est-à-dire celle qui laisse le moins de perte. Si aucune ne convient, elle entame un carreau neuf.
 4. La découpe se fait en ligne droite d'un bord à l'autre (« guillotine »). Les morceaux restants retournent dans le stock de chutes, épaisseur de coupe déduite.
+5. Si les bords coupés au milieu sont interdits, l'application retient pour chaque chute quels bords sont d'usine et lesquels sont coupés. Un morceau n'est taillé dans une chute que si tous ses côtés posés contre un autre carreau peuvent être des bords d'usine. Avec la rotation autorisée, la chute peut aussi être tournée de 180°.
 
 Exemple : un carreau coupé pour poser un morceau de 55 % laisse une chute d'environ 45 %. Cette chute servira plus loin pour un morceau de 33 %.
+
+Exemple, bords coupés au milieu interdits : le morceau posé contre le mur de gauche garde le bord d'usine à droite. La chute qui reste a son bord d'usine à gauche : elle peut servir contre le mur de droite, côté coupé contre le mur.
 
 ---
 
@@ -198,7 +202,7 @@ Chaque morceau coupé porte un numéro (`C1`, `C2`…), aussi affiché sur le pl
 - **où le tailler** :
   - `Carreau neuf n°3` : prendre un carreau neuf, qui devient le carreau n°3 ;
   - `Chute de C8 (n°3)` : prendre le reste du carreau n°3 après la découpe de C8 ;
-  - `↻` : la chute doit être tournée de 90°.
+  - `↻` : la chute doit être tournée de 90° (`↻ 180°` : d'un demi-tour).
 
 Pour une **forme complexe** (encoche, mur en biais, trou autour d'un obstacle), les dimensions sont celles du rectangle à découper d'abord, suivies de « + forme ». Une ligne de détail ajoute :
 
@@ -274,7 +278,7 @@ En dessous de 1100 px de large (tablette, petite fenêtre), les trois zones sont
   "pattern": "third",
   "joint": { "inner": 3, "perimeter": 5 },
   "start": { "x": 5, "y": 5, "anchor": "bl", "angle": 0 },
-  "optim": { "reuse": true, "kerf": 2, "minOffcut": 20, "allowRotate": false },
+  "optim": { "reuse": true, "kerf": 2, "minOffcut": 20, "allowRotate": false, "noInnerCuts": false },
   "purchase": { "margin": 10, "tilesPerBox": 6 }
 }
 ```
@@ -285,6 +289,7 @@ En dessous de 1100 px de large (tablette, petite fenêtre), les trois zones sont
 | `pattern` | `straight` (droite), `third` (1/3 : 100/66/33), `twoThirds` (100/66), `half` (1/2) |
 | `start.anchor` | `bl` bas-gauche, `br` bas-droit, `tl` haut-gauche, `tr` haut-droit, `c` centre |
 | `start.angle` | degrés, sens anti-horaire |
+| `optim.noInnerCuts` | `true` : bords coupés uniquement contre les murs et les obstacles |
 
 Le fichier peut être modifié à la main. Les valeurs absentes ou invalides sont remplacées par les valeurs par défaut au chargement.
 
@@ -305,7 +310,7 @@ Les flèches (→, ↻…) sont remplacées par des équivalents texte (`->`, `(
 
 - Un morceau découpé en biais ou en forme de L est compté comme le rectangle qui l'englobe. Le nombre de carreaux peut donc être légèrement surestimé, jamais sous-estimé.
 - Les obstacles doivent être à l'intérieur de la pièce et ne pas se chevaucher.
-- L'optimisation ne tient pas compte du côté usine ou du côté coupé des chutes. Placer de préférence le côté coupé contre le mur, il sera caché par la plinthe.
+- Par défaut, l'optimisation ne tient pas compte du côté usine ou du côté coupé des chutes. Placer de préférence le côté coupé contre le mur, il sera caché par la plinthe. Cocher « Interdire les bords coupés au milieu » pour l'imposer.
 - Avec un joint périphérique très large par rapport à des recoins étroits, le contour carrelé peut devenir incohérent.
 
 ## Structure du projet
