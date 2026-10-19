@@ -1144,8 +1144,10 @@
     let y = 0;
     const newPage = () => { doc.addPage(); y = PH - M; };
     const need = h => { if (y - h < M + 16) newPage(); };
-    const heading = str => {
-      need(48);
+    // h : hauteur du contenu de la section, pour ne la couper que si elle dépasse une page.
+    const heading = (str, h) => {
+      const total = 35 + h, bottom = M + 16;
+      if (y - total < bottom && (total <= PH - M - bottom || y - 48 < bottom)) newPage();
       y -= 8;
       doc.text(str, M, y - 13, { size: 13, font: 'F2' });
       y -= 19;
@@ -1167,26 +1169,30 @@
       }
     };
     const strip = str => str.replace(/\s*\((mm|%|0 = ignorer)\)$/, '');
+    const paraH = (str, size) => doc.wrap(str, size, 'F1', CW).length * size * 1.35;
 
-    newPage();
-    heading('Paramètres');
     const st = project.start, o = project.optim;
-    kv('Revêtement', parquet ? 'Parquet' : 'Carrelage');
-    kv(T('dims'), `${fmtMm(project.tile.length)} × ${fmtMm(project.tile.width)} mm`);
-    kv('Pose', optionText('pattern', project.pattern));
-    if (!parquet) kv('Joint entre carreaux', `${fmtMm(project.joint.inner)} mm`);
-    kv(strip(T('perimeter')), `${fmtMm(project.joint.perimeter)} mm`);
-    kv(startName(), `X ${fmtMm(st.x)} ; Y ${fmtMm(st.y)} mm, ${optionText('start.anchor', st.anchor).toLowerCase()}, ${fmt(st.angle, 0, 2)}°`);
-    kv('Réutilisation des chutes', o.reuse ? 'Oui' : 'Non');
-    kv('Épaisseur de coupe', `${fmtMm(o.kerf)} mm`);
-    kv('Chute minimale réutilisable', `${fmtMm(o.minOffcut)} mm`);
-    if (!parquet) kv('Rotation des chutes à 90°', o.allowRotate ? 'Autorisée' : 'Non');
-    kv('Bords coupés au milieu', o.noInnerCuts ? 'Interdits' : 'Autorisés');
-    kv(strip(T('margin')), `${fmt(project.purchase.margin, 0, 1)} %`);
-    kv(strip(T('perBox')), project.purchase.tilesPerBox ? String(project.purchase.tilesPerBox) : '—');
+    const params = [
+      ['Revêtement', parquet ? 'Parquet' : 'Carrelage'],
+      [T('dims'), `${fmtMm(project.tile.length)} × ${fmtMm(project.tile.width)} mm`],
+      ['Pose', optionText('pattern', project.pattern)],
+      !parquet && ['Joint entre carreaux', `${fmtMm(project.joint.inner)} mm`],
+      [strip(T('perimeter')), `${fmtMm(project.joint.perimeter)} mm`],
+      [startName(), `X ${fmtMm(st.x)} ; Y ${fmtMm(st.y)} mm, ${optionText('start.anchor', st.anchor).toLowerCase()}, ${fmt(st.angle, 0, 2)}°`],
+      ['Réutilisation des chutes', o.reuse ? 'Oui' : 'Non'],
+      ['Épaisseur de coupe', `${fmtMm(o.kerf)} mm`],
+      ['Chute minimale réutilisable', `${fmtMm(o.minOffcut)} mm`],
+      !parquet && ['Rotation des chutes à 90°', o.allowRotate ? 'Autorisée' : 'Non'],
+      ['Bords coupés au milieu', o.noInnerCuts ? 'Interdits' : 'Autorisés'],
+      [strip(T('margin')), `${fmt(project.purchase.margin, 0, 1)} %`],
+      [strip(T('perBox')), project.purchase.tilesPerBox ? String(project.purchase.tilesPerBox) : '—'],
+    ].filter(Boolean);
+    heading('Paramètres', params.length * 13.5);
+    for (const [k, v] of params) kv(k, v);
 
-    heading('Résultats');
-    for (const row of statsRows()) {
+    const stats = statsRows();
+    heading('Résultats', stats.reduce((s, row) => s + (row ? 13.5 : 5), 0));
+    for (const row of stats) {
       if (!row) { y -= 5; continue; }
       const [k, v, cls] = row;
       kv(k, v, {
@@ -1196,18 +1202,22 @@
       });
     }
 
-    heading('Liste des coupes');
-    para(`Cotes du rectangle à découper, dans le sens ${T('along')} (longueur × largeur). Formes complexes : pièce vue de dessus telle que posée, partie à retirer en gris, traits de coupe en rouge.`, { size: 8.5, color: '#4b5563' });
-    y -= 4;
+    const cutsIntro = `Cotes du rectangle à découper, dans le sens ${T('along')} (longueur × largeur). Formes complexes : pièce vue de dessus telle que posée, partie à retirer en gris, traits de coupe en rouge.`;
     const cols = [M, M + 40, M + 190];
-    need(14);
-    ['N°', 'Dimensions (mm)', 'Taillée dans'].forEach((h, i) => doc.text(h, cols[i], y - 9.5, { size: 9, font: 'F2', color: '#4b5563' }));
-    y -= 14;
     const sk = { w: 140, h: 80 }, stepX = cols[1] + sk.w + 12, stepW = PW - M - stepX;
-    for (const t of result.cuts) {
+    const cutRows = result.cuts.map(t => {
       const steps = t.shape.complex ? shapeSteps(t).flatMap((s, i) => doc.wrap(`${i + 1}. ${s}`, 8.5, 'F1', stepW)) : [];
       const skH = t.h * Math.min((sk.w - 24) / t.w, (sk.h - 24) / t.h) + 24;
       const detailH = t.shape.complex ? Math.max(skH, steps.length * 11.5) + 6 : 0;
+      return { t, steps, skH, detailH };
+    });
+    heading('Liste des coupes', paraH(cutsIntro, 8.5) + 4 + 14 + cutRows.reduce((s, r) => s + 13.5 + r.detailH, 0));
+    para(cutsIntro, { size: 8.5, color: '#4b5563' });
+    y -= 4;
+    need(14);
+    ['N°', 'Dimensions (mm)', 'Taillée dans'].forEach((h, i) => doc.text(h, cols[i], y - 9.5, { size: 9, font: 'F2', color: '#4b5563' }));
+    y -= 14;
+    for (const { t, steps, skH, detailH } of cutRows) {
       need(13.5 + detailH);
       doc.text(`C${t.id}`, cols[0], y - 9.5, { size: 9.5, font: 'F2' });
       doc.text(`${fmtMm(t.w)} × ${fmtMm(t.h)}${t.shape.complex ? ' + forme' : ''}`, cols[1], y - 9.5, { size: 9.5 });
@@ -1221,20 +1231,19 @@
       doc.line({ x: M, y: y + 2 }, { x: PW - M, y: y + 2 }, { stroke: '#e5e7eb', width: 0.5 });
     }
 
-    heading(T('planTitle'));
-    for (const s of result.plan) {
-      const txt = s.pieces.map(p => `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)}${p.shape.complex ? ', forme' : ''})`).join(' → ');
-      const lines = doc.wrap(txt, 9, 'F1', CW - 40);
+    const planRows = result.plan.map(s => ({
+      s,
+      lines: doc.wrap(s.pieces.map(p => `C${p.id} (${fmtMm(p.w)}×${fmtMm(p.h)}${p.shape.complex ? ', forme' : ''})`).join(' → '), 9, 'F1', CW - 40),
+    }));
+    heading(T('planTitle'), planRows.reduce((h, r) => h + r.lines.length * 12.5 + 2, 0));
+    for (const { s, lines } of planRows) {
       need(lines.length * 12.5);
       doc.text(`n°${s.stock}`, M, y - 9, { size: 9, font: 'F2' });
       lines.forEach((l, i) => doc.text(l, M + 40, y - 9 - i * 12.5, { size: 9 }));
       y -= lines.length * 12.5 + 2;
     }
 
-    newPage();
-    heading('Fichier du projet (JSON)');
-    para('Contenu du fichier produit par « Enregistrer en JSON ». Recopié dans un fichier .json, il se rouvre avec « Ouvrir un JSON… ».', { size: 8.5, color: '#4b5563' });
-    y -= 6;
+    const jsonIntro = 'Contenu du fichier produit par « Enregistrer en JSON ». Recopié dans un fichier .json, il se rouvre avec « Ouvrir un JSON… ».';
     const size = 7.5, lh = 9.6, cw = size * 0.6, gutter = 26;
     const maxChars = Math.floor((CW - gutter - 12) / cw);
     const vis = [];
@@ -1252,6 +1261,9 @@
       }
       vis.push({ no, tokens: cur });
     });
+    heading('Fichier du projet (JSON)', paraH(jsonIntro, 8.5) + 6 + vis.length * lh + 8);
+    para(jsonIntro, { size: 8.5, color: '#4b5563' });
+    y -= 6;
     for (let i = 0; i < vis.length;) {
       need(lh * 2 + 8);
       const fit = Math.max(1, Math.floor((y - (M + 16) - 8) / lh));

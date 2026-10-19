@@ -302,6 +302,8 @@ Le fichier peut être modifié à la main. Les valeurs absentes ou invalides son
 3. **Liste des coupes**, avec croquis et étapes pour les formes complexes, puis **découpe des carreaux neufs**.
 4. **Fichier du projet (JSON)**, en police à chasse fixe avec numéros de ligne et coloration, pour pouvoir le recopier et le rouvrir.
 
+Une section qui ne tient pas dans la place restante commence sur une nouvelle page, pour ne pas être coupée. Une section plus longue qu'une page continue sur la suivante, sans séparer une coupe de son croquis.
+
 Les flèches (→, ↻…) sont remplacées par des équivalents texte (`->`, `(pivotée)`), les polices standard du PDF ne les contenant pas.
 
 ---
